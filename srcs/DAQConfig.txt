@@ -1,0 +1,26 @@
+################################################
+## This DAQ config is read at the DAQ startup ##
+## Lines starting with a # are ignorned       ##
+################################################
+
+#####  Global DAQ Parameters ####
+ 
+MAXNB				1               #Number of Boards 
+ReadoutSize			1000            #Size of the Waveforms saved
+ASIC_Gain			14              #mV/fc
+ASIC_Shaping_Time		2               #mus
+MaxEvents			10
+MaxTime                         100             #seconds
+BoardsBaseAddress		[ 0x32100000 ]
+SoftwareTrigger                 1
+RunOnlineAnalysis               0
+MaxEventsPerFile                1 
+
+##### DAQ Board Specific Parameters #####
+
+## Board 1 ##
+GroupTriggerMasks	 	0x32100000	[ 1 1 1 1 1 1 1 1 ] 
+GroupAquisitionMasks 		0x32100000	255
+GroupTriggerThresholds       	0x32100000	[ 10 10 10 10 10 10 10 10 ]
+
+## Board 2 ##

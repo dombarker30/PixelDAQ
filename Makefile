@@ -11,7 +11,7 @@ OUT     =    	$(OUTDIR)/$(OUTNAME)
 OBJDIR	=	./bin/objdir
 SRCSDIR	=	./srcs
 
-CC	=	gcc
+CC	=	g++
 
 COPTS	=	-fPIC -DLINUX -O2  -std=c++11
 
@@ -27,7 +27,7 @@ LIBS	=	-L..
 
 INCLUDEDIR =	-I./include
 
-OBJS	=	$(OBJDIR)/DAQDriver.o $(OBJDIR)/PixelReadout.o 
+OBJS	=	$(OBJDIR)/keyb.o $(OBJDIR)/DAQDriver.o $(OBJDIR)/PixelReadout.o 
 
 INCLUDES =	./include/*
 
@@ -42,6 +42,9 @@ $(OUT)	:	$(OBJS)
 		/bin/rm -f $(OUT)
 		if [ ! -d $(OUTDIR) ]; then mkdir -p $(OUTDIR); fi
 		$(CC) $(FLAGS) -o $(OUT) $(OBJS) $(DEPLIBS)
+
+$(OBJS) :       $(INCLUDES) Makefile
+
 
 $(OBJDIR)/%.o	:	$(SRCSDIR)/%.c
 		if [ ! -d $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
