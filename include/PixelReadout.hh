@@ -47,7 +47,7 @@ public:
   PixelReadout();
   
   //Holder for the DAQ config
-  struct DAQConfig {
+  struct DAQConfig{
   public:
     
     int MAXNB;              //Number of connected boards 
@@ -70,19 +70,30 @@ public:
     DAQConfig() {}
   };
 
-  struct Header {
+  struct Header{
+  public: 
+    int NumBoards;
+    int ReadoutSize;
+    int ASIC_Gain;
+    int ASIC_Shaping_Time;
+    
+    Header(){}
+  };
+
+  struct EventHeader{
   public: 
     uint32_t EventNumber;
     uint32_t Timestamp;
     uint32_t EventSize;
 
-    Header() {}
+    EventHeader() {}
   };
 
 public :
 
   DAQConfig DAQConfig;
   Header header;
+  EventHeader eventheader;
 
   void PrintConfig();
   void QuitProgram();

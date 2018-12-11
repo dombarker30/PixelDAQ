@@ -351,6 +351,13 @@ int DAQ::PixelReadout::StartAcquisition(){
 	this->QuitProgram();
 	ret = (CAEN_DGTZ_ErrorCode) -99999999;
       }
+
+    //Write the File header 
+    header.NumBoards         = DAQConfig.MAXNB;
+    header.ReadoutSize       = DAQConfig.ReadoutSize;
+    header.ASIC_Gain         = DAQConfig.ASIC_Gain;
+    header.ASIC_Shaping_Time = DAQConfig.ASIC_Shaping_Time;
+    outputfile.write((char*)&header,sizeof(Header));
     
     if(ret != 0){continue;}
 
@@ -386,9 +393,9 @@ int DAQ::PixelReadout::StartAcquisition(){
 	  if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_GetEventInfo(handle[b],buffer,bsize,ev,&eventInfo,&evtptr);}
 	  
 	  //Fill the header information
-	  header.Timestamp   = eventInfo.TriggerTimeTag;
-	  header.EventNumber = eventInfo.EventCounter; 
-	  header.EventSize = eventInfo.EventSize;
+	  eventheader.Timestamp   = eventInfo.TriggerTimeTag;
+	  eventheader.EventNumber = eventInfo.EventCounter; 
+	  eventheader.EventSize = eventInfo.EventSize;
 
 	  int Eventsize = eventInfo.EventSize;
 	  
@@ -396,8 +403,8 @@ int DAQ::PixelReadout::StartAcquisition(){
 	  if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_DecodeEvent(handle[b],evtptr,(void**) &Evt);}
 	
 	  //Write the data to the file
-	  outputfile.write((char*)&header,sizeof(Header));
-	  outputfile.write((char*)Evt,Eventsize);
+	  outputfile.write((char*)&eventheader,sizeof(EventHeader));
+	  outputfile.write((char*)Evt,sizeof(CAEN_DGTZ_UINT16_EVENT_t));
 	  
 	  if(DAQConfig.RunOnlineAnalysis){
 	    for(uint16_t ch=0; ch<sizeof(Evt->DataChannel)/sizeof(Evt->DataChannel[0]); ++ch){
