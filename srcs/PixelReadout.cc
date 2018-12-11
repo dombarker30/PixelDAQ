@@ -357,6 +357,7 @@ int DAQ::PixelReadout::StartAcquisition(){
     header.ReadoutSize       = DAQConfig.ReadoutSize;
     header.ASIC_Gain         = DAQConfig.ASIC_Gain;
     header.ASIC_Shaping_Time = DAQConfig.ASIC_Shaping_Time;
+    header.BoardsBaseAddress = DAQConfig.BoardsBaseAddress;
     outputfile.write((char*)&header,sizeof(Header));
     
     if(ret != 0){continue;}
@@ -393,9 +394,10 @@ int DAQ::PixelReadout::StartAcquisition(){
 	  if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_GetEventInfo(handle[b],buffer,bsize,ev,&eventInfo,&evtptr);}
 	  
 	  //Fill the header information
-	  eventheader.Timestamp   = eventInfo.TriggerTimeTag;
-	  eventheader.EventNumber = eventInfo.EventCounter; 
-	  eventheader.EventSize = eventInfo.EventSize;
+	  eventheader.Timestamp         = eventInfo.TriggerTimeTag;
+	  eventheader.EventNumber       = eventInfo.EventCounter; 
+	  eventheader.EventSize         = eventInfo.EventSize;
+	  eventheader.BoardBaseAddress = eventInfo.BoardId;;
 
 	  int Eventsize = eventInfo.EventSize;
 	  

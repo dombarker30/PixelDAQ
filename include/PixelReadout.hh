@@ -76,6 +76,7 @@ public:
     int ReadoutSize;
     int ASIC_Gain;
     int ASIC_Shaping_Time;
+    std::vector<uint32_t> BoardsBaseAddress;
     
     Header(){}
   };
@@ -85,6 +86,7 @@ public:
     uint32_t EventNumber;
     uint32_t Timestamp;
     uint32_t EventSize;
+    uint32_t BoardBaseAddress;
 
     EventHeader() {}
   };
