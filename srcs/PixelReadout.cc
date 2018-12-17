@@ -575,7 +575,7 @@ int DAQ::PixelReadout::StartAcquisition(){
   }
 
   if(ret != CAEN_DGTZ_Success) {
-    std::cerr << " Errors Data Aqisition. Error code: " << (int) ret << std::endl;
+    std::cerr << " Errors Data Aquisition. Error code: " << (int) ret << std::endl;
     this->QuitProgram();
     return 1;
   }
