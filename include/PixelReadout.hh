@@ -59,36 +59,43 @@ public:
     int SoftwareTrigger;    //Should the software trigger be used. 0 is true, 1 is false.
     int MaxEventsPerFile;   //Max Number of Events in a File 
     int RunOnlineAnalysis;  //Do the Online Analysis
+    int Verbose;            //Give some extra information when runnig the DAQ
+    int TimeOffset;         //Timeoffset from trigger. Give as a %
 
     std::vector<uint32_t> BoardsBaseAddress; //Board Base Addresses
     
     std::map<int, std::vector<int> > GroupTriggerMasks;      //Map of boards and there groups. Used to turn Groups on and off for triggering.       
     std::map<int, std::vector<int> > GroupTriggerThresholds; //Map of boards and there groups. Used to set trigger thresholds for groups.
+    std::map<int, std::vector<int> > GroupPolarity;          //Map of boards and there groups. Used to set the polarity.
+    std::map<int, std::vector<int> > GroupDCOffset;          //Map of boards and there groups. Used to set the DCOffset. 
     std::map<int, int>               GroupAquisitionMasks;   //Map of boards and there groups. Used to turn Groups on and off for aquisition.
-
-
-    DAQConfig() {}
+    
+    DAQConfig(){}
+    ~DAQConfig(){}
   };
 
   struct Header{
   public: 
-    int NumBoards;
-    int ReadoutSize;
-    int ASIC_Gain;
-    int ASIC_Shaping_Time;
-    std::vector<uint32_t> BoardsBaseAddress;
-    
+    int NumBoards = -99999;
+    int ReadoutSize = -99999 ;
+    int ASIC_Gain = -99999;
+    int ASIC_Shaping_Time = -99999;
+
     Header(){}
+    ~Header(){}
   };
 
   struct EventHeader{
   public: 
-    uint32_t EventNumber;
-    uint32_t Timestamp;
-    uint32_t EventSize;
-    uint32_t BoardBaseAddress;
+    uint32_t EventNumber = 99999;
+    uint32_t Timestamp = 99999;
+    uint32_t EventSize = 99999;
+    uint32_t BoardBaseAddress = 99999;
+    uint32_t NumChannels = 99999;
+    uint32_t ChSize = 99999;
 
-    EventHeader() {}
+    EventHeader(){}
+    ~EventHeader(){}
   };
 
 public :
@@ -112,8 +119,9 @@ private:
 
   int  InitialiseBoards();
   int  InitialiseTriggers();
+  int  InitialiseOffsets();
+  int  InitialiseAcquisition();
   int  ReadConfig();
-
 };
 
 #endif //PixelReadout_hh 

@@ -18,7 +18,9 @@ DAQ::PixelReadout::PixelReadout(){
 
   err = this->ReadConfig();
   if(!err){err = this->InitialiseBoards();}
-  if(!err){err =this->InitialiseTriggers();}
+  if(!err){err = this->InitialiseTriggers();}
+  if(!err){err = this->InitialiseOffsets();}
+  if(!err){err = this->InitialiseAcquisition();}
 }
 
 int DAQ::PixelReadout::InitialiseBoards(){
@@ -130,6 +132,8 @@ int DAQ::PixelReadout::ReadConfig(){
 	if(parname == "SoftwareTrigger")   {DAQConfig.SoftwareTrigger   = std::stof(parval);++par;}
 	if(parname == "MaxEventsPerFile")  {DAQConfig.MaxEventsPerFile  = std::stof(parval);++par;}
 	if(parname == "RunOnlineAnalysis") {DAQConfig.RunOnlineAnalysis = std::stof(parval);++par;}
+	if(parname == "Verbose")           {DAQConfig.Verbose           = std::stof(parval);++par;}
+	if(parname == "TimeOffset")        {DAQConfig.TimeOffset        = std::stof(parval);++par;}
 
       	if(parname == "BoardsBaseAddress"){
 	  ++par;
@@ -178,6 +182,31 @@ int DAQ::PixelReadout::ReadConfig(){
 	    ss >> parval;
 	  }
 	}
+	
+	if(parname == "GroupPolarity"){
+	  ++par;
+          int board_address = std::stoi(parval,nullptr,16);
+	  ss >> parval;
+	  while(parval != "]"){
+	    if(parval == "["){ss >> parval; continue;}
+	    if(parval == "#"){break;}
+	    DAQConfig.GroupPolarity[board_address].push_back(std::stoi(parval));
+	    ss >> parval;
+	  }
+	}
+	
+	if(parname == "GroupDCOffset"){
+	  ++par;
+          int board_address = std::stoi(parval,nullptr,16);
+	  ss >> parval;
+	  while(parval != "]"){
+	    if(parval == "["){ss >> parval; continue;}
+	    if(parval == "#"){break;}
+	    DAQConfig.GroupDCOffset[board_address].push_back(std::stoi(parval));
+	    ss >> parval;
+	  }
+	}
+
     }
   }
 
@@ -190,7 +219,7 @@ int DAQ::PixelReadout::ReadConfig(){
 
   this->PrintConfig();
 
-  if(par!=13){
+  if(par!=17){
     std::cout << "Config only partially filled. Error" << std::endl;
     return -1;
   }  
@@ -216,6 +245,8 @@ void DAQ::PixelReadout::PrintConfig(){
   std::cout << std::left << std::setw(big_name) << "## Set Software Trigger: " << std::left << std::setw(spacing) << DAQConfig.SoftwareTrigger  << "##" << std::endl;
   std::cout << std::left << std::setw(big_name) << "## Max Events per File: " << std::left << std::setw(spacing) << DAQConfig.MaxEventsPerFile  << "##" << std::endl;
   std::cout << std::left << std::setw(big_name) << "## Run Online Analysis: " << std::left << std::setw(spacing) << DAQConfig.RunOnlineAnalysis  << "##" << std::endl;
+  std::cout << std::left << std::setw(big_name) << "## Verbose: " << std::left << std::setw(spacing) << DAQConfig.Verbose   << "##" << std::endl;
+  std::cout << std::left << std::setw(big_name) << "## TimeOffset: " << std::left << std::setw(spacing) << DAQConfig.TimeOffset   << "##" << std::endl;
 
   std::cout << std::setw(big_name) << "## Board Base Addresses: " << std::flush;
   for(int i=0; i<DAQConfig.BoardsBaseAddress.size();++i){
@@ -227,7 +258,11 @@ void DAQ::PixelReadout::PrintConfig(){
     std::cout << std::left << std::setw(big_name) << "## GroupTriggerMasks: " << std::hex <<  board_iter->first << " " << std::dec << std::flush; 
     int iter=0;
     for(int j=0; j<(board_iter->second).size(); ++j){
-      iter += std::floor (std::log10 (std::abs (board_iter->second.at(j)))) + 1 + 1;
+      int logvalue;
+      if(std::abs(board_iter->second.at(j) == 0)){logvalue = 0;}
+      else{logvalue = (std::log10(std::abs(board_iter->second.at(j))));}
+      if(board_iter->second.at(j) < 0){logvalue += 1;}
+      iter += std::floor (logvalue + 1 + 1);
       std::cout << board_iter->second.at(j) << " " << std::flush;
     }
     std::cout << std::right << std::setw(spacing-iter-7) <<  "##" << std::endl;
@@ -241,7 +276,39 @@ void DAQ::PixelReadout::PrintConfig(){
     std::cout << std::left << std::setw(big_name) << "## GroupTriggerThresholds: " << std::hex <<  board_iter->first << " " << std::dec << std::flush; 
     int iter=0;
     for(int j=0; j<(board_iter->second).size(); ++j){
-      iter += std::floor (std::log10 (std::abs (board_iter->second.at(j)))) + 1 + 1;
+      int logvalue;
+      if(std::abs(board_iter->second.at(j) == 0)){logvalue = 0;}
+      else{logvalue = (std::log10(std::abs(board_iter->second.at(j))));}
+      if(board_iter->second.at(j) < 0){logvalue += 1;}
+      iter += std::floor (logvalue + 1 + 1);
+      std::cout << board_iter->second.at(j) << " " << std::flush;
+    }
+    std::cout << std::right << std::setw(spacing-iter-7) <<  "##" << std::endl;
+  }
+
+  for(std::map<int,std::vector<int> >::iterator board_iter=DAQConfig.GroupPolarity.begin(); board_iter!=DAQConfig.GroupPolarity.end(); ++board_iter){
+    std::cout << std::left << std::setw(big_name) << "## GroupPolarity: " << std::hex <<  board_iter->first << " " << std::dec << std::flush; 
+    int iter=0;
+    for(int j=0; j<(board_iter->second).size(); ++j){
+      int logvalue;
+      if(std::abs(board_iter->second.at(j) == 0)){logvalue = 0;}
+      else{logvalue = (std::log10(std::abs(board_iter->second.at(j))));}
+      if(board_iter->second.at(j) < 0){logvalue += 1;}
+      iter += std::floor (logvalue + 1 + 1);
+      std::cout << board_iter->second.at(j) << " " << std::flush;
+    }
+    std::cout << std::right << std::setw(spacing-iter-7) <<  "##" << std::endl;
+  }
+  
+  for(std::map<int,std::vector<int> >::iterator board_iter=DAQConfig.GroupDCOffset.begin(); board_iter!=DAQConfig.GroupDCOffset.end(); ++board_iter){
+    std::cout << std::left << std::setw(big_name) << "## GroupDCOffset: " << std::hex <<  board_iter->first << " " << std::dec << std::flush; 
+    int iter=0;
+    for(int j=0; j<(board_iter->second).size(); ++j){
+      int logvalue;
+      if(std::abs(board_iter->second.at(j) == 0)){logvalue = 0;}
+      else{logvalue = (std::log10(std::abs(board_iter->second.at(j))));}
+      if(board_iter->second.at(j) < 0){logvalue += 1;}
+      iter += std::floor (logvalue + 1 + 1);
       std::cout << board_iter->second.at(j) << " " << std::flush;
     }
     std::cout << std::right << std::setw(spacing-iter-7) <<  "##" << std::endl;
@@ -262,6 +329,7 @@ int DAQ::PixelReadout::InitialiseTriggers(){
      
      //Set the software trigger to get aquire the values only
      if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetSWTriggerMode(handle[b],CAEN_DGTZ_TRGMODE_ACQ_ONLY);}
+     if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetExtTriggerInputMode(handle[b],CAEN_DGTZ_TRGMODE_DISABLED);}
    }
   }
   else{
@@ -277,33 +345,91 @@ int DAQ::PixelReadout::InitialiseTriggers(){
 
 	//Enable the groups for triggering. 	
 	if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetGroupSelfTrigger(handle[b],(CAEN_DGTZ_TriggerMode_t) DAQConfig.GroupTriggerMasks[board_address][group],group);}
+	
+	//Set the Polarity.
+	if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetTriggerPolarity(handle[b],group,(CAEN_DGTZ_TriggerPolarity_t)  DAQConfig.GroupPolarity[board_address][group]);}
+
+	//Set the trigger mode. Pass to the the output trigger as well as take data.
+	if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetExtTriggerInputMode(handle[b],CAEN_DGTZ_TRGMODE_ACQ_AND_EXTOUT);}
       }
     }
   }
 
 
 
-  if(ret != CAEN_DGTZ_Success) {
+  if(ret != CAEN_DGTZ_Success){
     std::cerr << "Errors during Trigger Configuration. Error code: " << (int) ret << std::endl;
     this->QuitProgram();
     return 1;
   }
-  else {
+  else{
     std::cout << "Trigger Initialsation Complete" << std::endl;
   }
 
   return 0; 
 }
 
+int DAQ::PixelReadout::InitialiseOffsets(){
+
+  for(int b=0; b<DAQConfig.MAXNB; b++){
+    
+    int board_address = DAQConfig.BoardsBaseAddress[b];
+
+    //Set the timing offset this is a percentage from 0% = trigger is at the end.
+    if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetPostTriggerSize(handle[b], DAQConfig.TimeOffset);}
+ 
+    for(uint32_t group=0; group<8; ++group){
+      //Set DC offset for  V1740 is controleld by a 16bits DAC and by default off set is set of -Vpp/2 so range is from -Vpp/2 to +Vpp/2. for V1740 Vpp=2V DCOffset set per bit 0 to 65535. 0 is +1V. 0V = 2048.  
+      //0x10C0 + 0x100· n -> Correction values for channel offset 0.3 
+      //0x10C4 + 0x100· n -> Correction values for channel offset 4..7
+      if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetGroupDCOffset(handle[b],group, DAQConfig.GroupDCOffset[board_address][group]);}
+    }
+  }
+  
+  if(ret != CAEN_DGTZ_Success){
+    std::cerr << "Errors during Offset Configuration. Error code: " << (int) ret << std::endl;
+    this->QuitProgram();
+    return 1;
+  }
+  else{
+    std::cout << "Offset Initialsation Complete" << std::endl;
+  }
+
+  return 0; 
+}
+
+int DAQ::PixelReadout::InitialiseAcquisition(){
+
+  for(int b=0; b<DAQConfig.MAXNB; b++){
+
+    //Tell which group should be involved in the aquistion. All = 255 
+    int board_address = DAQConfig.BoardsBaseAddress[b];
+    if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetGroupEnableMask(handle[b],DAQConfig.GroupAquisitionMasks[board_address]);}
+
+    //Set the aquisition start. If multiple boards this woudld require a change.
+    if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetAcquisitionMode(handle[b],CAEN_DGTZ_SW_CONTROLLED);}
+  }
+
+  if(ret != CAEN_DGTZ_Success){
+    std::cerr << "Errors during Aquisition Configuration. Error code: " << (int) ret << std::endl;
+    this->QuitProgram();
+    return 1;
+  }
+  else{
+    std::cout << "Aquisition Initialsation Complete" << std::endl;
+  }
+  return 0;
+}
+  
 
 int DAQ::PixelReadout::StartAcquisition(){
 
-  CAEN_DGTZ_EventInfo_t eventInfo;
-  CAEN_DGTZ_UINT16_EVENT_t *Evt=NULL; // Events data buffer
-  uint32_t size,bsize;
-  uint32_t numEvents;
-  char * evtptr = NULL;
-  int TotalnumEvents = 0;
+  CAEN_DGTZ_EventInfo_t    eventInfo; //Event header info
+  CAEN_DGTZ_UINT16_EVENT_t *Evt=NULL; //Event data buffer
+  char                     *evtptr = NULL;
+  uint32_t                 size,bsize;
+  uint32_t                 numEvents;
+  int                      TotalnumEvents = 0;
 
   int quit         = 0; 
   int start_time   = std::time(0);
@@ -318,17 +444,11 @@ int DAQ::PixelReadout::StartAcquisition(){
   if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_MallocReadoutBuffer(handle[0],&buffer,&size);}
 
   for(int b=0; b<DAQConfig.MAXNB; b++){
-    int board_address = DAQConfig.BoardsBaseAddress[b];
-    if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetGroupEnableMask(handle[b],DAQConfig.GroupAquisitionMasks[board_address]);}
-    if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetAcquisitionMode(handle[b],CAEN_DGTZ_SW_CONTROLLED);}
     if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SWStartAcquisition(handle[b]);}
+    std::cout << "Aquisition Started" << std::endl;
   }
 
-  std::cout << "Aquisition Started" << std::endl;
- 
   while(TotalnumEvents < MaxEvents && time_passed < MaxTime && !quit && ret==0){ 
-
-    Sleep(1000);
 
     //Initalise the Output file
     //Get the time now.
@@ -357,7 +477,7 @@ int DAQ::PixelReadout::StartAcquisition(){
     header.ReadoutSize       = DAQConfig.ReadoutSize;
     header.ASIC_Gain         = DAQConfig.ASIC_Gain;
     header.ASIC_Shaping_Time = DAQConfig.ASIC_Shaping_Time;
-    header.BoardsBaseAddress = DAQConfig.BoardsBaseAddress;
+
     outputfile.write((char*)&header,sizeof(Header));
     
     if(ret != 0){continue;}
@@ -374,9 +494,12 @@ int DAQ::PixelReadout::StartAcquisition(){
       for(int b=0; b<DAQConfig.MAXNB; b++) {
             
 	//Send software trigger
-	if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SendSWtrigger(handle[b]);} 
-	
-	//Read Read the buffer from the digitizer
+	if(DAQConfig.SoftwareTrigger){
+	  Sleep(100);
+	  if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SendSWtrigger(handle[b]);} 
+	}
+
+	//Read the buffer from the digitizer
 	if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_ReadData(handle[b],CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT,buffer,&bsize);}
 	
 	//The buffer read from the digitizer is used in the other functions to get the event data. The following function returns the number of events in the buffer 
@@ -385,7 +508,7 @@ int DAQ::PixelReadout::StartAcquisition(){
       
 	//Only count one event for all the boards
 	if(b==0){
-	  EventsInFile   += numEvents;
+	  EventsInFile += numEvents;
 	}
 
 	for (int ev=0;ev<numEvents;ev++) {
@@ -393,32 +516,45 @@ int DAQ::PixelReadout::StartAcquisition(){
 	  // Get the Infos and pointer to the event
 	  if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_GetEventInfo(handle[b],buffer,bsize,ev,&eventInfo,&evtptr);}
 	  
-	  //Fill the header information
-	  eventheader.Timestamp         = eventInfo.TriggerTimeTag;
-	  eventheader.EventNumber       = eventInfo.EventCounter; 
-	  eventheader.EventSize         = eventInfo.EventSize;
-	  eventheader.BoardBaseAddress = eventInfo.BoardId;;
-
 	  int Eventsize = eventInfo.EventSize;
 	  
 	  //Decode the event to get the data
 	  if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_DecodeEvent(handle[b],evtptr,(void**) &Evt);}
+
+	  //Fill the header information
+	  eventheader.Timestamp         = eventInfo.TriggerTimeTag;
+	  eventheader.EventNumber       = eventInfo.EventCounter; 
+	  eventheader.BoardBaseAddress  = eventInfo.BoardId;
+	  eventheader.NumChannels       = sizeof(Evt->DataChannel)/sizeof(Evt->DataChannel[0]); 
+	  eventheader.ChSize            = Evt->ChSize[0];
+
+	  if(DAQConfig.Verbose){
+	    std::cout << "Event Found!" << std::endl;
+	    std::cout << " Event Number: " << eventheader.EventNumber << std::endl;
+	    std::cout << " Event Time  : " << eventheader.EventNumber << std::endl;
+	    std::cout << " Board ID    : " << eventheader.BoardBaseAddress << std::endl;
+	  }
 	
 	  //Write the data to the file
 	  outputfile.write((char*)&eventheader,sizeof(EventHeader));
-	  outputfile.write((char*)Evt,sizeof(CAEN_DGTZ_UINT16_EVENT_t));
-	  
+
+	  for(uint16_t ch=0; ch<sizeof(Evt->DataChannel)/sizeof(Evt->DataChannel[0]); ++ch){
+	    outputfile.write((char*)Evt->DataChannel[ch],sizeof(uint16_t)*eventheader.ChSize);
+	  }
+
 	  if(DAQConfig.RunOnlineAnalysis){
+	    std::cout << " Event Number: " << eventheader.EventNumber << std::endl;
 	    for(uint16_t ch=0; ch<sizeof(Evt->DataChannel)/sizeof(Evt->DataChannel[0]); ++ch){
 	      
-	      //for(int adc_it=0; adc_it<Evt->ChSize[ch]; ++adc_it){
-	      //Write the data to a file.
-	      //  std::cout << Evt->DataChannel[ch][adc_it]; 
+	      for(int adc_it=0; adc_it<(Evt->ChSize[ch]); ++adc_it){
+		std::cout << Evt->DataChannel[ch][adc_it] << " ";
+	      }
+	      std::cout << " " << std::endl;
 	    }
 	  }
 	}
 	//Free the Event 
-	  if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_FreeEvent(handle[b],(void**) &Evt);}
+	if(ret == CAEN_DGTZ_Success){CAEN_DGTZ_FreeEvent(handle[b],(void**) &Evt);}
       }//End of loop on boards                
       
       //Check if it time to end the acquisition 
@@ -426,10 +562,17 @@ int DAQ::PixelReadout::StartAcquisition(){
       time_passed  = std::time(0) - start_time;
     }//Loop for filling file
 
+    std::cout << " File: " << filename << " written" << std::endl;
     outputfile.close();
     TotalnumEvents += EventsInFile;
 
   }//While Loop
+
+  //End the aquisition
+  for(int b=0; b<DAQConfig.MAXNB; b++){
+    ret = CAEN_DGTZ_SWStopAcquisition(handle[b]);
+    std::cout << "Aquisition finished" << std::endl;
+  }
 
   if(ret != CAEN_DGTZ_Success) {
     std::cerr << " Errors Data Aqisition. Error code: " << (int) ret << std::endl;

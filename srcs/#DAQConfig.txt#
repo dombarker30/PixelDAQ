@@ -21,7 +21,7 @@ TimeOffset                      50              #Time offset from the trigger gi
 ##### DAQ Board Specific Parameters #####
 
 ## Board 1 ##
-GroupTriggerMasks	 	0x32100000	[ 3 3 3 3 3 3 3 3 ]                                     #Use the groups to trigger (CAEN 1740 is split into 8 groups of 8 channels)                                                                                                         #1 Yes 0 No
+GroupTriggerMasks	 	0x32100000	[ 3 3 3 3 3 3 3 3 ]                                     #Use the groups to trigger (CAEN 1740 is split into 8 groups of 8 channels) 
 GroupAquisitionMasks 		0x32100000	255                                                     #Decides which groups to dtake data. For more details see the README
 GroupTriggerThresholds       	0x32100000	[ 2115 2115 2115 2115 2115 3309 3309 3309 ]             #Thresholds in ADC for each trigger. Rememebr Offset
 GroupPolarity                   0x32100000      [ 1 1 1 1 1 1 1 1 ]                                     #Set polarity (1=Falling Edge, 0=RisingEdge)
