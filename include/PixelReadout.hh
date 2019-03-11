@@ -17,7 +17,7 @@
 //CAEN Includes
 #include "CAENDigitizer.h"
 
-//C++ Inclues 
+//C++ Includes 
 #include <stdio.h>
 #include <vector>
 #include <fstream>
@@ -29,6 +29,17 @@
 #include <map>
 #include <ctime>
 #include <limits>
+#include <chrono>
+
+
+//Analysis Includes
+#include "/home/argonshef/LArAnalysis/srcs/TPC/OnlineAnalysis/OnlineMonitor.hh"
+#include "/home/argonshef/LArAnalysis/srcs/TPC/OnlineAnalysis/OnlineEventDisplay.hh"
+
+//DAQ Includes
+#include "ChannelMap.hh"
+#include "keyb.hh"
+
 
 #define CAEN_USE_DIGITIZERS
 #define IGNORE_DPP_DEPRECATED
@@ -45,6 +56,7 @@ class DAQ::PixelReadout {
 public:
 
   PixelReadout();
+  std::map<int, std::string> channelMap;
   
   //Holder for the DAQ config
   struct DAQConfig{
@@ -69,7 +81,7 @@ public:
     std::map<int, std::vector<int> > GroupPolarity;          //Map of boards and there groups. Used to set the polarity.
     std::map<int, std::vector<int> > GroupDCOffset;          //Map of boards and there groups. Used to set the DCOffset. 
     std::map<int, int>               GroupAquisitionMasks;   //Map of boards and there groups. Used to turn Groups on and off for aquisition.
-    
+
     DAQConfig(){}
     ~DAQConfig(){}
   };

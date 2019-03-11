@@ -6,24 +6,37 @@
 #####  Global DAQ Parameters ####
  
 MAXNB				1               #Number of Boards 
-ReadoutSize			10              #Size of the Waveforms saved
-ASIC_Gain			14              #mV/fc
-ASIC_Shaping_Time		2               #mus
-MaxEvents			10              #Max number of events to take
-MaxTime                         100             #seconds
+ReadoutSize			1000            #Size of the Waveforms saved
+MaxEvents			1               #Max number of events to take
+MaxTime                         1000            #seconds
 BoardsBaseAddress		[ 0x32100000 ]
 SoftwareTrigger                 0               #Tigger using a software trigger 0 No 1 Yes
 RunOnlineAnalysis         	1               #Run the Online Analaysis whilst the DAQ is running 0 No 1 Yes
-MaxEventsPerFile                5               #Number of the Evenets per file 
-Verbose                         0               #Extra info whilst running the DAQ 
+MaxEventsPerFile                100             #Number of the Evenets per file 
+Verbose                         1               #Extra info whilst running the DAQ 
 TimeOffset                      50              #Time offset from the trigger given as a % (0% trigger is at the end);
  
 ##### DAQ Board Specific Parameters #####
 
 ## Board 1 ##
-GroupTriggerMasks	 	0x32100000	[ 3 3 3 3 3 3 3 3 ]                                     #Use the groups to trigger (CAEN 1740 is split into 8 groups of 8 channels)                                                                                                         #1 Yes 0 No
+GroupTriggerMasks	 	0x32100000	[ 1 1 1 1 1 1 1 1 ]                                     #Use the groups to trigger (CAEN 1740 is split into 8 groups of 8 channels)                                                                                                         #1 Yes 0 No
 GroupAquisitionMasks 		0x32100000	255                                                     #Decides which groups to dtake data. For more details see the README
-GroupTriggerThresholds       	0x32100000	[ 2115 2115 2115 2115 2115 3309 3309 3309 ]             #Thresholds in ADC for each trigger. Rememebr Offset
-GroupPolarity                   0x32100000      [ 1 1 1 1 1 1 1 1 ]                                     #Set polarity (1=Falling Edge, 0=RisingEdge)
-GroupDCOffset                   0x32100000      [ 32766 32766 32766 32766 32766 16384 16384 16384 ]     #Set DC offset is 16bits from P2P confusingly (DAQ is 12 bits). 
+GroupTriggerThresholds       	0x32100000	[ 2250 2250 2250 2250 2250 2250 2250 2250 ]             #Thresholds in ADC for each trigger. Rememebr Offset
+GroupPolarity                   0x32100000      [ 0 0 0 0 0 0 0 0 ]                                     #Set polarity (1=Falling Edge, 0=RisingEdge)
+GroupDCOffset                   0x32100000      [ 32767 32767 32767 32767 32767 32767 32767 32767 ]     #Set DC offset is 16bits from P2P confusingly (DAQ is 12 bits). 
 ## Board 2 ##
+
+#### ARDUINO Parameters ####
+LeakageControl		0   #Leakage Control  
+MonitorSelector		0   #1=bandgap reference, 0=temperature 
+MonitorOn		0   #1=Monitor ON on Ch0    
+FilterOn		0   #1= high filter on ch16 enabled    
+OutputBufferOn    	0   #Output buffer 0=down and bypassed, 1=active 
+OutputCoupling		0   #Output coupling, 0=DC, 1=AC  
+ASIC_Shaping_Time	2   #mus  (Shaping time bit 1 00=1us 10=0.5us, 01 = 3us, 11=2us)
+ASIC_Gain              	14  #mV/fC (Gain bit 1 00=4.7mC/fC 10=7.8mV/fC, 01=14mV/fC,11=25mV/fc)
+Baseline		200 #Baseline 900mv or 200mv  
+TestCapacitanceEnabled	0   #TestCapacitanceEnabled
+TestPulseDuration      	5   #mus
+TestPulsePeriod        	100 #mus
+EnableTestPulses        1   #1 Yes 0 No 

@@ -11,8 +11,7 @@
 //## Updates:     28th Nov 2018 - Readout stream complete                 ##
 //##########################################################################            
 
-#include "PixelReadout.hh"
-#include "keyb.hh"
+#include "../include/PixelReadout.hh"
 
 DAQ::PixelReadout::PixelReadout(){
 
@@ -21,6 +20,8 @@ DAQ::PixelReadout::PixelReadout(){
   if(!err){err = this->InitialiseTriggers();}
   if(!err){err = this->InitialiseOffsets();}
   if(!err){err = this->InitialiseAcquisition();}
+
+  this->channelMap = DAQ::ChannelMap::InitChannelMap();
 }
 
 int DAQ::PixelReadout::InitialiseBoards(){
@@ -206,9 +207,11 @@ int DAQ::PixelReadout::ReadConfig(){
 	    ss >> parval;
 	  }
 	}
-
     }
   }
+
+  //Max sure max events per file is not more than max events        
+  if(DAQConfig.MaxEvents < DAQConfig.MaxEventsPerFile){DAQConfig.MaxEventsPerFile = DAQConfig.MaxEvents;}
 
   //Increase the handle size
   handle.resize(DAQConfig.MAXNB);
@@ -231,7 +234,7 @@ void DAQ::PixelReadout::PrintConfig(){
 
   int big_name = 32;
   int spacing = 9*DAQConfig.BoardsBaseAddress.size() ;
-  if(spacing < 9 + 1 + 16){spacing = 9 + 1 + 32;}
+  if(spacing < 9 + 1 + 16){spacing = 9 + 1 + 50;}
   std::cout << "##" << std::setfill('#') << std::setw(big_name + spacing) << "##"  << std::endl;
   std::cout << "##" << std::right << std::setw(std::floor((big_name+spacing+19-2)/2)) << " Config Parameters " << std::left << std::setw(std::ceil((big_name+spacing-19+3)/2)) << "##" << std::endl;
   std::cout << "##" << std::setfill('#') << std::setw(big_name + spacing) << "##"  << std::endl;
@@ -379,7 +382,7 @@ int DAQ::PixelReadout::InitialiseOffsets(){
     if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetPostTriggerSize(handle[b], DAQConfig.TimeOffset);}
  
     for(uint32_t group=0; group<8; ++group){
-      //Set DC offset for  V1740 is controleld by a 16bits DAC and by default off set is set of -Vpp/2 so range is from -Vpp/2 to +Vpp/2. for V1740 Vpp=2V DCOffset set per bit 0 to 65535. 0 is +1V. 0V = 2048.  
+      //Set DC offset for  V1740 is controlled by a 16bits DAC and by default off set is set of -Vpp/2 so range is from -Vpp/2 to +Vpp/2. for V1740 Vpp=2V DCOffset set per bit 0 to 65535. Bit 0 in the daq is +1V? 0V = 2048.  
       //0x10C0 + 0x100· n -> Correction values for channel offset 0.3 
       //0x10C4 + 0x100· n -> Correction values for channel offset 4..7
       if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetGroupDCOffset(handle[b],group, DAQConfig.GroupDCOffset[board_address][group]);}
@@ -437,6 +440,8 @@ int DAQ::PixelReadout::StartAcquisition(){
   
   int MaxEvents = DAQConfig.MaxEvents;
   int MaxTime   = DAQConfig.MaxTime;
+
+  std::map<int,std::string> channelMap = DAQ::ChannelMap::InitChannelMap();
 
   if(MaxEvents < 1){MaxEvents = std::numeric_limits<int>::max();}
   if(MaxTime   < 1){MaxTime   = std::numeric_limits<int>::max();}
@@ -530,9 +535,9 @@ int DAQ::PixelReadout::StartAcquisition(){
 
 	  if(DAQConfig.Verbose){
 	    std::cout << "Event Found!" << std::endl;
-	    std::cout << " Event Number: " << eventheader.EventNumber << std::endl;
-	    std::cout << " Event Time  : " << eventheader.EventNumber << std::endl;
-	    std::cout << " Board ID    : " << eventheader.BoardBaseAddress << std::endl;
+	    std::cout << "Event Number: " << eventheader.EventNumber << std::endl;
+	    std::cout << "Event Time  : " << eventheader.Timestamp << std::endl;
+	    std::cout << "Board ID    : " << eventheader.BoardBaseAddress << std::endl;
 	  }
 	
 	  //Write the data to the file
@@ -544,15 +549,44 @@ int DAQ::PixelReadout::StartAcquisition(){
 
 	  if(DAQConfig.RunOnlineAnalysis){
 	    std::cout << " Event Number: " << eventheader.EventNumber << std::endl;
+	    auto t1 = std::chrono::high_resolution_clock::now();
+	    
+	    float maxPeakHeight, maxPeakTime;
+	    int numHitsChannel;
+	    std::vector<std::string> channelIDs;
+	    std::vector<float> maxPeakHeights, maxPeakTimes;
+	    std::vector<int> numHitsEvent;
+
 	    for(uint16_t ch=0; ch<sizeof(Evt->DataChannel)/sizeof(Evt->DataChannel[0]); ++ch){
+	      std::string channelID = DAQ::ChannelMap::GetChannelID(ch+1, channelMap);
+	      std::cout << " ChannelID: " << channelID << std::endl;
 	      
-	      for(int adc_it=0; adc_it<(Evt->ChSize[ch]); ++adc_it){
-		std::cout << Evt->DataChannel[ch][adc_it] << " ";
-	      }
+	      // TODO ED
+
+	      PixelData::TPC::OnlineMonitor online = PixelData::TPC::RunOnline(Evt->DataChannel[ch],eventheader.ChSize,eventheader.EventNumber,ch,eventheader.Timestamp,true,false,true);
+	      
+	      maxPeakHeight = online.GetMaxPeakHeight();
+	      maxPeakTime = online.GetMaxPeakTime();
+	      numHitsChannel = online.GetNumHits();
+
+	      channelIDs.push_back(channelID);
+	      maxPeakHeights.push_back(maxPeakHeight);
+	      maxPeakTimes.push_back(maxPeakTime);
+	      numHitsEvent.push_back(numHitsChannel);
+	      //for(int adc_it=0; adc_it<(Evt->ChSize[ch]); ++adc_it){
+		//std::cout << Evt->DataChannel[ch][adc_it] << " ";
+	      //}
+
 	      std::cout << " " << std::endl;
 	    }
+	    TCanvas* XYCanvas = PixelData::TPC::PixelXYPlot(channelIDs, numHitsEvent, maxPeakHeights, eventheader.EventNumber, channelMap);
+	    TCanvas* XYTCanvas = PixelData::TPC::PixelXYTPlot(channelIDs, numHitsEvent, maxPeakHeights, maxPeakTimes, eventheader.EventNumber, channelMap);
+	    auto t2 = std::chrono::high_resolution_clock::now();
+	    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
+	    std::cout<<"Time taken: "<<duration<<std::endl;
 	  }
 	}
+
 	//Free the Event 
 	if(ret == CAEN_DGTZ_Success){CAEN_DGTZ_FreeEvent(handle[b],(void**) &Evt);}
       }//End of loop on boards                

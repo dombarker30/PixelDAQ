@@ -3,7 +3,7 @@ kbhit() and getch() for Linux/UNIX
 Chris Giese <geezer@execpc.com>	http://my.execpc.com/~geezer
 */
 
-#include "keyb.hh"
+#include "../include/keyb.hh"
 #include <sys/time.h> /* struct timeval, select() */
 #include <termios.h> /* tcgetattr(), tcsetattr() */
 #include <stdlib.h> /* atexit(), exit() */

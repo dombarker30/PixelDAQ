@@ -11,8 +11,10 @@ OUT     =    	$(OUTDIR)/$(OUTNAME)
 OBJDIR	=	./bin/objdir
 SRCSDIR	=	./srcs
 
-CC	=	g++
-
+#CC	=	g++
+CC 	= 	`root-config --cxx`
+CXXFLAGS=	`root-config --cflags`
+ROOTLIBS = 	`root-config --glibs`
 COPTS	=	-fPIC -DLINUX -O2  -std=c++11
 
 FLAGS  	=       -Wall 
@@ -27,31 +29,38 @@ LIBS	=	-L..
 
 INCLUDEDIR =	-I./include
 
-OBJS	=	$(OBJDIR)/keyb.o $(OBJDIR)/DAQDriver.o $(OBJDIR)/PixelReadout.o 
+OBJS	=	$(OBJDIR)/keyb.o $(OBJDIR)/DAQDriver.o $(OBJDIR)/PixelReadout.o  $(OBJDIR)/ChannelMap.o $(OBJDIR)/OnlineMonitor.o  $(OBJDIR)/ArduinoSetup.o $(OBJDIR)/OnlineEventDisplay.o
+INCLUDES =	./include/*.hh	$(INCLUDEONLINEDIR)/*.hh
 
-INCLUDES =	./include/*
+INCLUDEONLINEDIR = /home/argonshef/LArAnalysis/srcs/TPC/OnlineAnalysis/
 
-#########################################################################
+##########################################################################################################################################################
 
-all	:	$(OUT)
+all	:	$(OUT) 
 
-clean	:
-		/bin/rm -f $(OBJS) $(OUT)
+clean	:	/bin/rm -f $(OBJS) $(OUT)
 
-$(OUT)	:	$(OBJS)
+$(OUT)	:	$(OBJS) 
+		@echo Compiling 
 		/bin/rm -f $(OUT)
 		if [ ! -d $(OUTDIR) ]; then mkdir -p $(OUTDIR); fi
-		$(CC) $(FLAGS) -o $(OUT) $(OBJS) $(DEPLIBS)
+		$(CC) $(CXXFLAGS) $(FLAGS) -o $(OUT) $(OBJS) $(ROOTLIBS) $(DEPLIBS)
 
 $(OBJS) :       $(INCLUDES) Makefile
 
-
-$(OBJDIR)/%.o	:	$(SRCSDIR)/%.c
+$(OBJDIR)/%.o	:	$(SRCSDIR)/%.c 
+		@echo Building $@ 
 		if [ ! -d $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
 		$(CC) $(COPTS) $(INCLUDEDIR) -c -o $@ $<
 
-$(OBJDIR)/%.o	:	$(SRCSDIR)/%.cc
+$(OBJDIR)/%.o	:	$(SRCSDIR)/%.cc 
+		@echo Building $@ 
 		if [ ! -d $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
-		$(CC) $(COPTS) $(INCLUDEDIR) -c -o $@ $<
+		$(CC) $(CXXFLAGS) $(COPTS) -I$(ROOTSYS)/include $(INCLUDEDIR) -I$(INCLUDEONLINEDIR) -c -o $@ $<
 
+$(OBJDIR)/%.o	:	$(INCLUDEONLINEDIR)/%.cc
+		@echo Building $@ 
+		if [ ! -d $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
+		$(CC) $(CXXFLAGS) $(COPTS) -I$(ROOTSYS)/include $(INCLUDEDIR) -I$(INCLUDEONLINEDIR) -c -o $@ $<
 .SILENT		:
+

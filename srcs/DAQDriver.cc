@@ -8,9 +8,16 @@
 //###########################################################
 
 #include "PixelReadout.hh"
-#include "keyb.hh"
+#include "ArduinoSetup.hh"
 
 int main(int argc, char* argv[]){
+
+  //Inatalise the arduino - read config,print config, send config
+  DAQ::ArduinoSetup ArduinoSetup;
+  if(ArduinoSetup.err){
+    std::cerr << "Error in setting up the arduino" << std::endl;
+    return -1;
+  }
 
   //Initialise the DAQ - Open the DAQ, read config, set the triggers.
   DAQ::PixelReadout PixelReadout;
