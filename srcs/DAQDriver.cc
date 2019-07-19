@@ -13,20 +13,20 @@
 int main(int argc, char* argv[]){
 
   //Inatalise the arduino - read config,print config, send config
-  DAQ::ArduinoSetup ArduinoSetup;
-  if(ArduinoSetup.err){
-    std::cerr << "Error in setting up the arduino" << std::endl;
-    return -1;
-  }
+  // DAQ::ArduinoSetup ArduinoSetup;
+  // if(ArduinoSetup.err){
+  //   std::cerr << "Error in setting up the arduino" << std::endl;
+  //   return -1;
+  // }
 
   //Initialise the DAQ - Open the DAQ, read config, set the triggers.
   DAQ::PixelReadout PixelReadout;
 
   //Start the Acquisition 
-  if(!PixelReadout.err){PixelReadout.err = PixelReadout.StartAcquisition();}
+   if(!PixelReadout.err){PixelReadout.err = PixelReadout.StartAcquisition();}
 
   //Close The DAQ
-  if(!PixelReadout.err){PixelReadout.QuitProgram();}
+  PixelReadout.QuitProgram();
   
   if(!PixelReadout.err){std::cout << "DAQ Finished sucessfully" << std::endl;}
 

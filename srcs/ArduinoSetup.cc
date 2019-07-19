@@ -199,7 +199,7 @@ int DAQ::ArduinoSetup::SendConfig(){
 
 
   FILE *file;
-  file = fopen("/dev/ttyUSB1","w");  //Opening device file
+  file = fopen("/dev/ttyUSB0","w");  //Opening device file
   if(file != NULL){
     std::cout << "Opened port and sending to ASIC" << std::endl;
     usleep(1000*100);
@@ -224,7 +224,7 @@ int DAQ::ArduinoSetup::SendCommand(std::string& Command){
   //Hoping this refreshes now so all commonds send 
   FILE *file;
 
-  file = fopen("/dev/ttyUSB1","w");  //Opening device file
+  file = fopen("/dev/ttyUSB0","w");  //Opening device file
   if(file != NULL){
     std::cout << "Opened port and sending command: " << Command << std::endl;
     fprintf(file,"%s",Command.c_str());

@@ -35,6 +35,7 @@
 //Analysis Includes
 #include "/home/argonshef/LArAnalysis/srcs/TPC/OnlineAnalysis/OnlineMonitor.hh"
 #include "/home/argonshef/LArAnalysis/srcs/TPC/OnlineAnalysis/OnlineEventDisplay.hh"
+#include "/home/argonshef/LArAnalysis/srcs/TPC/OnlineAnalysis/OnlineDataBase.hh"
 
 //DAQ Includes
 #include "ChannelMap.hh"

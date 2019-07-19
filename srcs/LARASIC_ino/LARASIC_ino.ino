@@ -1,7 +1,7 @@
 #include <EEPROM.h>
 #include <stdio.h>
 #include <Stream.h>
-#define NCHIPS 4      //max number of LARASIC to configure
+#define NCHIPS 1 //8      //max number of LARASIC to configure
 
 #define G_SLK 0x80    // leakage control
 #define G_STB1 0x40    // Monitor selector, 1=bandgap reference, 0=temperature
@@ -40,7 +40,7 @@ void setup()
   Serial.begin(9600);
   Serial.print("LAR TPC CONTROLLER initialization...");
   PulseWidth = 3; //test pulse duration in mcs
-  PulsePeriod = 100; // test pulse period in mcs
+  PulsePeriod = 10000; // test pulse period in mcs
 
   //  SetBasicConfig();
   //  SaveConfig();
@@ -74,7 +74,12 @@ void(* resetFunc) (void) = 0; //declare reset function @ address 0
 void loop()
 {
 
+  int test = 0;
   while (Serial.available() > 0 && bufptr < 255 && buf[bufptr] != 0xD ) {
+    ++test;
+    if (test == 1) {
+      Serial.println("test is one");
+    }
     bufptr++;
     buf[bufptr] = Serial.read();
     Serial.println(buf[bufptr]);
@@ -87,8 +92,6 @@ void loop()
     Serial.println(buf);
     //Serial.println(", processing...");
     res = sscanf(buf, "%c %s %u", &Command, Register, &Bit);
-    Serial.println(" Bit is: ");     
-    Serial.println(Bit);
     if (res > 0)
     {
       switch (Command)
@@ -340,7 +343,7 @@ void SendConfig()
   digitalWrite(csPin, HIGH);
   digitalWrite(ledPin, HIGH); //latch shift register
   delay(tD);
-
+ // }
 }
 
 void SendByte(unsigned char Byte)

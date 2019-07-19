@@ -16,6 +16,7 @@ CC 	= 	`root-config --cxx`
 CXXFLAGS=	`root-config --cflags`
 ROOTLIBS = 	`root-config --glibs`
 COPTS	=	-fPIC -DLINUX -O2  -std=c++11
+SQL     =       -lpqxx -lpq
 
 FLAGS  	=       -Wall 
 #FLAGS	=	-soname -s
@@ -29,7 +30,7 @@ LIBS	=	-L..
 
 INCLUDEDIR =	-I./include
 
-OBJS	=	$(OBJDIR)/keyb.o $(OBJDIR)/DAQDriver.o $(OBJDIR)/PixelReadout.o  $(OBJDIR)/ChannelMap.o $(OBJDIR)/OnlineMonitor.o  $(OBJDIR)/ArduinoSetup.o $(OBJDIR)/OnlineEventDisplay.o
+OBJS	=	$(OBJDIR)/keyb.o $(OBJDIR)/DAQDriver.o $(OBJDIR)/PixelReadout.o  $(OBJDIR)/ChannelMap.o $(OBJDIR)/OnlineMonitor.o  $(OBJDIR)/ArduinoSetup.o $(OBJDIR)/OnlineEventDisplay.o $(OBJDIR)/OnlineDataBase.o
 INCLUDES =	./include/*.hh	$(INCLUDEONLINEDIR)/*.hh
 
 INCLUDEONLINEDIR = /home/argonshef/LArAnalysis/srcs/TPC/OnlineAnalysis/
@@ -38,13 +39,14 @@ INCLUDEONLINEDIR = /home/argonshef/LArAnalysis/srcs/TPC/OnlineAnalysis/
 
 all	:	$(OUT) 
 
-clean	:	/bin/rm -f $(OBJS) $(OUT)
+clean	:	
+		rm -rf $(OBJS) $(OUT)
 
 $(OUT)	:	$(OBJS) 
 		@echo Compiling 
 		/bin/rm -f $(OUT)
 		if [ ! -d $(OUTDIR) ]; then mkdir -p $(OUTDIR); fi
-		$(CC) $(CXXFLAGS) $(FLAGS) -o $(OUT) $(OBJS) $(ROOTLIBS) $(DEPLIBS)
+		$(CC) $(CXXFLAGS) $(FLAGS) -o $(OUT) $(OBJS) $(ROOTLIBS) $(SQL) $(DEPLIBS)
 
 $(OBJS) :       $(INCLUDES) Makefile
 
@@ -61,6 +63,7 @@ $(OBJDIR)/%.o	:	$(SRCSDIR)/%.cc
 $(OBJDIR)/%.o	:	$(INCLUDEONLINEDIR)/%.cc
 		@echo Building $@ 
 		if [ ! -d $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
-		$(CC) $(CXXFLAGS) $(COPTS) -I$(ROOTSYS)/include $(INCLUDEDIR) -I$(INCLUDEONLINEDIR) -c -o $@ $<
+		$(CC) $(CXXFLAGS) $(COPTS) -I$(ROOTSYS)/include $(SQL) $(INCLUDEDIR) -I$(INCLUDEONLINEDIR) -c -o $@  $<
+
 .SILENT		:
 

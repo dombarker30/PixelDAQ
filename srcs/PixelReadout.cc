@@ -562,9 +562,13 @@ int DAQ::PixelReadout::StartAcquisition(){
 	      std::cout << " ChannelID: " << channelID << std::endl;
 	      
 	      // TODO ED
-
-	      PixelData::TPC::OnlineMonitor online = PixelData::TPC::RunOnline(Evt->DataChannel[ch],eventheader.ChSize,eventheader.EventNumber,ch,eventheader.Timestamp,true,false,true);
+	      PixelData::TPC::OnlineMonitor online = PixelData::TPC::RunOnline(Evt->DataChannel[ch],eventheader.ChSize,eventheader.EventNumber,ch,channelID,eventheader.Timestamp,true,false,true);
 	      
+	      //Send to the database 
+	      PixelData::OnlineMointoring::OnlineDataBase DataBase;
+	      int err = DataBase.SendToDatabase(online);
+	      if(err !=0){std::cerr << "there was an error trying to send the data to the database" << std::endl;}
+
 	      maxPeakHeight = online.GetMaxPeakHeight();
 	      maxPeakTime = online.GetMaxPeakTime();
 	      numHitsChannel = online.GetNumHits();
@@ -573,6 +577,7 @@ int DAQ::PixelReadout::StartAcquisition(){
 	      maxPeakHeights.push_back(maxPeakHeight);
 	      maxPeakTimes.push_back(maxPeakTime);
 	      numHitsEvent.push_back(numHitsChannel);
+
 	      //for(int adc_it=0; adc_it<(Evt->ChSize[ch]); ++adc_it){
 		//std::cout << Evt->DataChannel[ch][adc_it] << " ";
 	      //}
@@ -581,6 +586,10 @@ int DAQ::PixelReadout::StartAcquisition(){
 	    }
 	    TCanvas* XYCanvas = PixelData::TPC::PixelXYPlot(channelIDs, numHitsEvent, maxPeakHeights, eventheader.EventNumber, channelMap);
 	    TCanvas* XYTCanvas = PixelData::TPC::PixelXYTPlot(channelIDs, numHitsEvent, maxPeakHeights, maxPeakTimes, eventheader.EventNumber, channelMap);
+	    XYCanvas->SaveAs("/data/TPC/OnlinePlots/XYCanvas.jpg");
+	    XYTCanvas->SaveAs("/data/TPC/OnlinePlots/XYTCanvas.jpg");
+	    delete XYCanvas, XYTCanvas;
+	    
 	    auto t2 = std::chrono::high_resolution_clock::now();
 	    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
 	    std::cout<<"Time taken: "<<duration<<std::endl;
