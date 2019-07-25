@@ -135,6 +135,7 @@ int DAQ::PixelReadout::ReadConfig(){
 	if(parname == "RunOnlineAnalysis") {DAQConfig.RunOnlineAnalysis = std::stof(parval);++par;}
 	if(parname == "Verbose")           {DAQConfig.Verbose           = std::stof(parval);++par;}
 	if(parname == "TimeOffset")        {DAQConfig.TimeOffset        = std::stof(parval);++par;}
+	if(parname == "AverageTime")       {DAQConfig.AverageTime       = std::stoi(parval);++par;}
 
       	if(parname == "BoardsBaseAddress"){
 	  ++par;
@@ -222,7 +223,7 @@ int DAQ::PixelReadout::ReadConfig(){
 
   this->PrintConfig();
 
-  if(par!=17){
+  if(par!=18){
     std::cout << "Config only partially filled. Error" << std::endl;
     return -1;
   }  
@@ -250,6 +251,8 @@ void DAQ::PixelReadout::PrintConfig(){
   std::cout << std::left << std::setw(big_name) << "## Run Online Analysis: " << std::left << std::setw(spacing) << DAQConfig.RunOnlineAnalysis  << "##" << std::endl;
   std::cout << std::left << std::setw(big_name) << "## Verbose: " << std::left << std::setw(spacing) << DAQConfig.Verbose   << "##" << std::endl;
   std::cout << std::left << std::setw(big_name) << "## TimeOffset: " << std::left << std::setw(spacing) << DAQConfig.TimeOffset   << "##" << std::endl;
+  std::cout << std::left << std::setw(big_name) << "## AverageTime: " << std::left << std::setw(spacing) << DAQConfig.AverageTime   << "##" << std::endl;
+
 
   std::cout << std::setw(big_name) << "## Board Base Addresses: " << std::flush;
   for(int i=0; i<DAQConfig.BoardsBaseAddress.size();++i){
@@ -443,6 +446,8 @@ int DAQ::PixelReadout::StartAcquisition(){
 
   std::map<int,std::string> channelMap = DAQ::ChannelMap::InitChannelMap();
 
+  PixelData::OnlineMointoring::OnlineDataBase DataBase;
+
   if(MaxEvents < 1){MaxEvents = std::numeric_limits<int>::max();}
   if(MaxTime   < 1){MaxTime   = std::numeric_limits<int>::max();}
 
@@ -526,13 +531,16 @@ int DAQ::PixelReadout::StartAcquisition(){
 	  //Decode the event to get the data
 	  if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_DecodeEvent(handle[b],evtptr,(void**) &Evt);}
 
+	  uint32_t AveragedChSize = ceil(Evt->ChSize[0]*16/DAQConfig.AverageTime);
+ 	  uint32_t NumChannels = sizeof(Evt->DataChannel)/sizeof(Evt->DataChannel[0]);
+
 	  //Fill the header information
 	  eventheader.Timestamp         = eventInfo.TriggerTimeTag;
 	  eventheader.EventNumber       = eventInfo.EventCounter; 
 	  eventheader.BoardBaseAddress  = eventInfo.BoardId;
-	  eventheader.NumChannels       = sizeof(Evt->DataChannel)/sizeof(Evt->DataChannel[0]); 
-	  eventheader.ChSize            = Evt->ChSize[0];
-
+	  eventheader.NumChannels       = NumChannels;
+	  eventheader.ChSize            = AveragedChSize;
+	
 	  if(DAQConfig.Verbose){
 	    std::cout << "Event Found!" << std::endl;
 	    std::cout << "Event Number: " << eventheader.EventNumber << std::endl;
@@ -543,8 +551,15 @@ int DAQ::PixelReadout::StartAcquisition(){
 	  //Write the data to the file
 	  outputfile.write((char*)&eventheader,sizeof(EventHeader));
 
-	  for(uint16_t ch=0; ch<sizeof(Evt->DataChannel)/sizeof(Evt->DataChannel[0]); ++ch){
-	    outputfile.write((char*)Evt->DataChannel[ch],sizeof(uint16_t)*eventheader.ChSize);
+          uint16_t* averagedWaveforms[NumChannels];
+	  
+	  for(uint16_t ch=0; ch<NumChannels; ++ch){
+            // Average the waveform
+	    //uint16_t* averagedWaveform = Evt->DataChannel[ch];
+	    uint16_t* averagedWaveform = this->AverageWaveform(Evt->DataChannel[ch],Evt->ChSize[0], AveragedChSize);
+	    //outputfile.write((char*)Evt->DataChannel[ch],sizeof(uint16_t)*eventheader.ChSize);
+	    outputfile.write((char*)averagedWaveform,sizeof(uint16_t)*AveragedChSize);
+	    averagedWaveforms[ch] = averagedWaveform;
 	  }
 
 	  if(DAQConfig.RunOnlineAnalysis){
@@ -557,15 +572,14 @@ int DAQ::PixelReadout::StartAcquisition(){
 	    std::vector<float> maxPeakHeights, maxPeakTimes;
 	    std::vector<int> numHitsEvent;
 
-	    for(uint16_t ch=0; ch<sizeof(Evt->DataChannel)/sizeof(Evt->DataChannel[0]); ++ch){
+	    for(uint16_t ch=0; ch<NumChannels; ++ch){
 	      std::string channelID = DAQ::ChannelMap::GetChannelID(ch+1, channelMap);
 	      std::cout << " ChannelID: " << channelID << std::endl;
 	      
 	      // TODO ED
-	      PixelData::TPC::OnlineMonitor online = PixelData::TPC::RunOnline(Evt->DataChannel[ch],eventheader.ChSize,eventheader.EventNumber,ch,channelID,eventheader.Timestamp,true,false,true);
+	      PixelData::TPC::OnlineMonitor online = PixelData::TPC::RunOnline(averagedWaveforms[ch],eventheader.ChSize,eventheader.EventNumber,ch,channelID,eventheader.Timestamp,true,false,true);
 	      
 	      //Send to the database 
-	      PixelData::OnlineMointoring::OnlineDataBase DataBase;
 	      int err = DataBase.SendToDatabase(online);
 	      if(err !=0){std::cerr << "there was an error trying to send the data to the database" << std::endl;}
 
@@ -611,6 +625,8 @@ int DAQ::PixelReadout::StartAcquisition(){
 
   }//While Loop
 
+  DataBase.CloseDataBase();
+
   //End the aquisition
   for(int b=0; b<DAQConfig.MAXNB; b++){
     ret = CAEN_DGTZ_SWStopAcquisition(handle[b]);
@@ -629,4 +645,31 @@ int DAQ::PixelReadout::StartAcquisition(){
   return 0;
 }
 
+uint16_t* DAQ::PixelReadout::AverageWaveform(uint16_t* waveform, uint32_t ChSize, uint32_t AveragedChSize){
+  
+  uint16_t* averaged = new uint16_t[AveragedChSize];
+  //std::cout<<"AveragedChSize: "<<AveragedChSize<<std::endl;
+  int tick    = 0;
+  int time    = 0;  
+  int sum     = 0;
+  int counter = 0;
+ 
+  //std::cout<<"Size: "<<ChSize<<std::endl;
+ 
+  for (int adc_it=0; adc_it<ChSize; ++adc_it){
+    time+=16; //Each tick corresponds to 16ns
+    if ((int)time/DAQConfig.AverageTime == tick){
+      sum += waveform[adc_it];
+      ++counter;
+    } else {
+      averaged[tick] = round(sum/counter);
+      //std::cout<<"adc: "<<adc_it<<" time: "<<time<<" and tick: "<<tick<<" and avg. "<<round(sum/counter)<<std::endl;
+      ++tick;
+      sum = 0;
+      counter = 0;	
+    }
+  }
+	
+  return averaged;
+}
 
