@@ -24,7 +24,7 @@ FLAGS  	=       -Wall
 #FLAGS	=	-Wall,-soname -nostartfiles -s
 #FLAGS	=	-Wall,-soname
 
-DEPLIBS	=	-lCAENDigitizer
+DEPLIBS	=	-lCAENDigitizer -lCAENComm
 
 LIBS	=	-L..
 

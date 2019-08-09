@@ -14,7 +14,7 @@
 #include "../include/PixelReadout.hh"
 
 DAQ::PixelReadout::PixelReadout(){
-
+  
   err = this->ReadConfig();
   if(!err){err = this->InitialiseBoards();}
   if(!err){err = this->InitialiseTriggers();}
@@ -41,8 +41,22 @@ int DAQ::PixelReadout::InitialiseBoards(){
     
     if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_Reset(handle[b]);}                                               // Reset Digitizer 
     if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_GetInfo(handle[b], &BoardInfo);}                                 // Get Board Info
-    if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetRecordLength(handle[b],DAQConfig.ReadoutSize);}              // Set the length of each waveform (in samples) 
+    if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetRecordLength(handle[b],DAQConfig.ReadoutSize);}               // Set the length of each waveform (in samples) 
+    if(ret == CAEN_DGTZ_Success && DAQConfig.ApplyDecimationFactor){ret = CAEN_DGTZ_SetDecimationFactor(handle[b],DAQConfig.DecimationFactor);}    // Set the decimation factor 
+
+
     if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetMaxNumEventsBLT(handle[b],DAQConfig.MaxEvents);}             // Set the max number of events to transfer in a single readout
+
+    //Set the bits in word 2 of the header i.e. Pattern to show how the event was triggered.
+    uint32_t Header_Word2 = 0;
+    //Set the 21st bit to one.
+    Header_Word2 ^= (-1 ^ Header_Word2) & (1UL << 21);
+    commerr = CAENComm_Write32(handle[b],0x811C,Header_Word2);
+    if(commerr != CAENComm_Success){
+      std::cerr << "Failed to set bit" << (int) err << std::endl;
+      this->QuitProgram();
+      return 1;
+    }
 
     if(ret != CAEN_DGTZ_Success) {
       std::cerr << "Errors during Digitizer Configuration: " << (int) ret << std::endl;
@@ -124,18 +138,24 @@ int DAQ::PixelReadout::ReadConfig(){
 	//### Global Properties ###
 	//#########################
  
-  	if(parname == "MAXNB")             {DAQConfig.MAXNB             = std::stoi(parval);++par;}
-  	if(parname == "ReadoutSize")       {DAQConfig.ReadoutSize       = std::stoi(parval);++par;}
-  	if(parname == "ASIC_Gain")         {DAQConfig.ASIC_Gain         = std::stof(parval);++par;}
-  	if(parname == "ASIC_Shaping_Time") {DAQConfig.ASIC_Shaping_Time = std::stof(parval);++par;}
-  	if(parname == "MaxEvents")         {DAQConfig.MaxEvents         = std::stoi(parval);++par;}
-	if(parname == "MaxTime")           {DAQConfig.MaxTime           = std::stof(parval);++par;}
-	if(parname == "SoftwareTrigger")   {DAQConfig.SoftwareTrigger   = std::stof(parval);++par;}
-	if(parname == "MaxEventsPerFile")  {DAQConfig.MaxEventsPerFile  = std::stof(parval);++par;}
-	if(parname == "RunOnlineAnalysis") {DAQConfig.RunOnlineAnalysis = std::stof(parval);++par;}
-	if(parname == "Verbose")           {DAQConfig.Verbose           = std::stof(parval);++par;}
-	if(parname == "TimeOffset")        {DAQConfig.TimeOffset        = std::stof(parval);++par;}
-	if(parname == "AverageTime")       {DAQConfig.AverageTime       = std::stoi(parval);++par;}
+  	if(parname == "MAXNB")                          {DAQConfig.MAXNB                                  = std::stoi(parval);++par;}
+  	if(parname == "ReadoutSize")                    {DAQConfig.ReadoutSize                            = std::stoi(parval);++par;}
+  	if(parname == "ASIC_Gain")                      {DAQConfig.ASIC_Gain                              = std::stof(parval);++par;}
+  	if(parname == "ASIC_Shaping_Time")              {DAQConfig.ASIC_Shaping_Time                      = std::stof(parval);++par;}
+  	if(parname == "MaxEvents")                      {DAQConfig.MaxEvents                              = std::stoi(parval);++par;}
+	if(parname == "MaxTime")                        {DAQConfig.MaxTime                                = std::stof(parval);++par;}
+	if(parname == "SoftwareTrigger")                {DAQConfig.SoftwareTrigger                        = std::stof(parval);++par;}
+	if(parname == "MaxEventsPerFile")               {DAQConfig.MaxEventsPerFile                       = std::stof(parval);++par;}
+	if(parname == "RunOnlineAnalysis")              {DAQConfig.RunOnlineAnalysis                      = std::stof(parval);++par;}
+	if(parname == "Verbose")                        {DAQConfig.Verbose                                = std::stof(parval);++par;}
+	if(parname == "TimeOffset")                     {DAQConfig.TimeOffset                             = std::stof(parval);++par;}
+	if(parname == "AverageTime")                    {DAQConfig.AverageTime                            = std::stoi(parval);++par;}
+	if(parname == "ApplyAverageWaveform")           {DAQConfig.ApplyAverageWaveform                   = std::stoi(parval);++par;}
+	if(parname == "ApplyDecimationFactor")          {DAQConfig.ApplyDecimationFactor                  = std::stoi(parval);++par;}
+	if(parname == "DecimationFactor")               {DAQConfig.DecimationFactor                       = std::stoi(parval);++par;}
+	if(parname == "RunEventDiplay")                 {DAQConfig.RunEventDiplay                         = std::stoi(parval);++par;}
+	if(parname == "RunEventDisplayOverEveryXEvent") {DAQConfig.RunEventDisplayOverEveryXEvent         = std::stoi(parval);++par;}
+
 
       	if(parname == "BoardsBaseAddress"){
 	  ++par;
@@ -223,7 +243,7 @@ int DAQ::PixelReadout::ReadConfig(){
 
   this->PrintConfig();
 
-  if(par!=18){
+  if(par!=23){
     std::cout << "Config only partially filled. Error" << std::endl;
     return -1;
   }  
@@ -233,7 +253,7 @@ int DAQ::PixelReadout::ReadConfig(){
 
 void DAQ::PixelReadout::PrintConfig(){
 
-  int big_name = 32;
+  int big_name = 37;
   int spacing = 9*DAQConfig.BoardsBaseAddress.size() ;
   if(spacing < 9 + 1 + 16){spacing = 9 + 1 + 50;}
   std::cout << "##" << std::setfill('#') << std::setw(big_name + spacing) << "##"  << std::endl;
@@ -252,7 +272,12 @@ void DAQ::PixelReadout::PrintConfig(){
   std::cout << std::left << std::setw(big_name) << "## Verbose: " << std::left << std::setw(spacing) << DAQConfig.Verbose   << "##" << std::endl;
   std::cout << std::left << std::setw(big_name) << "## TimeOffset: " << std::left << std::setw(spacing) << DAQConfig.TimeOffset   << "##" << std::endl;
   std::cout << std::left << std::setw(big_name) << "## AverageTime: " << std::left << std::setw(spacing) << DAQConfig.AverageTime   << "##" << std::endl;
-
+  std::cout << std::left << std::setw(big_name) << "## ApplyAverageWaveform: " << std::left << std::setw(spacing) << DAQConfig.ApplyAverageWaveform   << "##" << std::endl;
+  std::cout << std::left << std::setw(big_name) << "## ApplyDecimationFactor: " << std::left << std::setw(spacing) << DAQConfig.ApplyDecimationFactor   << "##" << std::endl;
+  std::cout << std::left << std::setw(big_name) << "## DecimationFactor: " << std::left << std::setw(spacing) << DAQConfig.DecimationFactor   << "##" << std::endl;
+  std::cout << std::left << std::setw(big_name) << "## DecimationFactor: " << std::left << std::setw(spacing) << DAQConfig.DecimationFactor   << "##" << std::endl;
+  std::cout << std::left << std::setw(big_name) << "## RunEventDiplay: " << std::left << std::setw(spacing) << DAQConfig.RunEventDiplay   << "##" << std::endl;
+  std::cout << std::left << std::setw(big_name) << "## RunEventDisplayOverEveryXEvent: " << std::left << std::setw(spacing) << DAQConfig.RunEventDisplayOverEveryXEvent   << "##" << std::endl;
 
   std::cout << std::setw(big_name) << "## Board Base Addresses: " << std::flush;
   for(int i=0; i<DAQConfig.BoardsBaseAddress.size();++i){
@@ -260,7 +285,7 @@ void DAQ::PixelReadout::PrintConfig(){
   }
   std::cout << std::dec << std::right << std::setw(spacing - (8+1)*DAQConfig.BoardsBaseAddress.size()+2) << "##" << std::endl;
 
-  for(std::map<int,std::vector<int> >::iterator board_iter=DAQConfig.GroupTriggerMasks.begin(); board_iter!=DAQConfig.GroupTriggerMasks.end(); ++board_iter){
+  for(std::map<int,std::vector<uint32_t> >::iterator board_iter=DAQConfig.GroupTriggerMasks.begin(); board_iter!=DAQConfig.GroupTriggerMasks.end(); ++board_iter){
     std::cout << std::left << std::setw(big_name) << "## GroupTriggerMasks: " << std::hex <<  board_iter->first << " " << std::dec << std::flush; 
     int iter=0;
     for(int j=0; j<(board_iter->second).size(); ++j){
@@ -274,11 +299,11 @@ void DAQ::PixelReadout::PrintConfig(){
     std::cout << std::right << std::setw(spacing-iter-7) <<  "##" << std::endl;
   }
   
-  for(std::map<int,int >::iterator board_iter=DAQConfig.GroupAquisitionMasks.begin(); board_iter!=DAQConfig.GroupAquisitionMasks.end(); ++board_iter){
+  for(std::map<int,uint32_t>::iterator board_iter=DAQConfig.GroupAquisitionMasks.begin(); board_iter!=DAQConfig.GroupAquisitionMasks.end(); ++board_iter){
     std::cout << std::left << std::setw(big_name) << "## GroupAquisitionMasks: " << std::hex <<  board_iter->first << " " << std::dec << std::left << std::setw(spacing-9) << board_iter->second << "##" << std::endl; 
   }
 
-  for(std::map<int,std::vector<int> >::iterator board_iter=DAQConfig.GroupTriggerThresholds.begin(); board_iter!=DAQConfig.GroupTriggerThresholds.end(); ++board_iter){
+  for(std::map<int,std::vector<uint32_t> >::iterator board_iter=DAQConfig.GroupTriggerThresholds.begin(); board_iter!=DAQConfig.GroupTriggerThresholds.end(); ++board_iter){
     std::cout << std::left << std::setw(big_name) << "## GroupTriggerThresholds: " << std::hex <<  board_iter->first << " " << std::dec << std::flush; 
     int iter=0;
     for(int j=0; j<(board_iter->second).size(); ++j){
@@ -292,7 +317,7 @@ void DAQ::PixelReadout::PrintConfig(){
     std::cout << std::right << std::setw(spacing-iter-7) <<  "##" << std::endl;
   }
 
-  for(std::map<int,std::vector<int> >::iterator board_iter=DAQConfig.GroupPolarity.begin(); board_iter!=DAQConfig.GroupPolarity.end(); ++board_iter){
+  for(std::map<int,std::vector<uint32_t> >::iterator board_iter=DAQConfig.GroupPolarity.begin(); board_iter!=DAQConfig.GroupPolarity.end(); ++board_iter){
     std::cout << std::left << std::setw(big_name) << "## GroupPolarity: " << std::hex <<  board_iter->first << " " << std::dec << std::flush; 
     int iter=0;
     for(int j=0; j<(board_iter->second).size(); ++j){
@@ -306,7 +331,7 @@ void DAQ::PixelReadout::PrintConfig(){
     std::cout << std::right << std::setw(spacing-iter-7) <<  "##" << std::endl;
   }
   
-  for(std::map<int,std::vector<int> >::iterator board_iter=DAQConfig.GroupDCOffset.begin(); board_iter!=DAQConfig.GroupDCOffset.end(); ++board_iter){
+  for(std::map<int,std::vector<float> >::iterator board_iter=DAQConfig.GroupDCOffset.begin(); board_iter!=DAQConfig.GroupDCOffset.end(); ++board_iter){
     std::cout << std::left << std::setw(big_name) << "## GroupDCOffset: " << std::hex <<  board_iter->first << " " << std::dec << std::flush; 
     int iter=0;
     for(int j=0; j<(board_iter->second).size(); ++j){
@@ -319,7 +344,6 @@ void DAQ::PixelReadout::PrintConfig(){
     }
     std::cout << std::right << std::setw(spacing-iter-7) <<  "##" << std::endl;
   }
-
 
   std::cout << "##" << std::setfill('#') << std::setw(big_name + spacing) << "##"  << std::endl; 
   std::cout << std::setfill(' ');
@@ -346,8 +370,21 @@ int DAQ::PixelReadout::InitialiseTriggers(){
       //Annoyingly we can set the channel triggers individually we have to do it in groups
       for(uint32_t group=0; group<8; ++group){
 
-	//Set the triggers
-	if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetGroupTriggerThreshold(handle[b], group, DAQConfig.GroupTriggerThresholds[board_address][group]);}
+	//Set the triggers. First we need the base linevalue. See details in the DC offset
+	float ADCOffset_fine = DAQConfig.GroupDCOffset[board_address][group]/0.03051757812;
+	
+	uint32_t ADCOffset_fineint = ADCOffset_fine;
+
+	float ClosestmV = 1000. - ADCOffset_fineint * 0.03051757812;
+	
+	//Get the closest ADC in the read 1 bit = 0.48828125 mV 
+	float    ADCOffset     = (ClosestmV+1000)/0.48828125; 
+	uint32_t ADCOffset_int = ADCOffset; 
+	
+	//Threshold is baseline + user input 
+	uint32_t Threshold = ADCOffset_int + DAQConfig.GroupTriggerThresholds[board_address][group]; 
+
+	if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetGroupTriggerThreshold(handle[b], group, Threshold);}
 
 	//Enable the groups for triggering. 	
 	if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetGroupSelfTrigger(handle[b],(CAEN_DGTZ_TriggerMode_t) DAQConfig.GroupTriggerMasks[board_address][group],group);}
@@ -360,8 +397,6 @@ int DAQ::PixelReadout::InitialiseTriggers(){
       }
     }
   }
-
-
 
   if(ret != CAEN_DGTZ_Success){
     std::cerr << "Errors during Trigger Configuration. Error code: " << (int) ret << std::endl;
@@ -381,14 +416,33 @@ int DAQ::PixelReadout::InitialiseOffsets(){
     
     int board_address = DAQConfig.BoardsBaseAddress[b];
 
+    //Sort out the timing offset. NOTE: there is a constant latency which I think is 10 ticks long which we might want to add.  
     //Set the timing offset this is a percentage from 0% = trigger is at the end.
-    if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetPostTriggerSize(handle[b], DAQConfig.TimeOffset);}
- 
+    float offset_percentage = ((float) DAQConfig.TimeOffset)/100;
+    float offset_amount     = DAQConfig.ReadoutSize*offset_percentage;
+    uint32_t TimeOffset = offset_amount;
+
+    //Set the time offset this the number of samples TimeOffset = Number of samples after the tigger + ConstantLatency;
+    commerr = CAENComm_Write32(handle[b],0x8114,TimeOffset); 
+    if(commerr != CAENComm_Success){ 
+      std::cerr << "Errors during Offset Configuration. Error code: " << (int) commerr << std::endl;
+      this->QuitProgram();
+      return 1;
+    }
+    
+    //This does not work for some reason. 
+    //if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetPostTriggerSize(handle[b],(uint32_t)DAQConfig.TimeOffset);}
+
+
     for(uint32_t group=0; group<8; ++group){
-      //Set DC offset for  V1740 is controlled by a 16bits DAC and by default off set is set of -Vpp/2 so range is from -Vpp/2 to +Vpp/2. for V1740 Vpp=2V DCOffset set per bit 0 to 65535. Bit 0 in the daq is +1V? 0V = 2048.  
+      //Set DC offset for  V1740 is controlled by a 16bits DAC and by default off set is set of -Vpp/2 so range is from -Vpp/2 to +Vpp/2. for V1740 Vpp=2V DCOffset set per bit 0 to 65535. Bit 0 in the daq is +1V.  
       //0x10C0 + 0x100· n -> Correction values for channel offset 0.3 
-      //0x10C4 + 0x100· n -> Correction values for channel offset 4..7
-      if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetGroupDCOffset(handle[b],group, DAQConfig.GroupDCOffset[board_address][group]);}
+      //0x10C4 + 0x100· n -> Correction values for channel offset 4.7
+
+      //The user has given an offset in mV so convert from this 0 mV means the DAQ is set at baseline of 1V. 1 bit = 0.03051757812 mV. 
+      float ADCOffset = DAQConfig.GroupDCOffset[board_address][group]/0.03051757812;
+      uint32_t ADCOffset_int = ADCOffset;
+      if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SetGroupDCOffset(handle[b],group,ADCOffset_int);}
     }
   }
   
@@ -430,15 +484,16 @@ int DAQ::PixelReadout::InitialiseAcquisition(){
 
 int DAQ::PixelReadout::StartAcquisition(){
 
+
   CAEN_DGTZ_EventInfo_t    eventInfo; //Event header info
   CAEN_DGTZ_UINT16_EVENT_t *Evt=NULL; //Event data buffer
   char                     *evtptr = NULL;
   uint32_t                 size,bsize;
   uint32_t                 numEvents;
   int                      TotalnumEvents = 0;
+  int                      EventNum       = 0;
 
   int quit         = 0; 
-  int start_time   = std::time(0);
   int time_passed  = 0;
   
   int MaxEvents = DAQConfig.MaxEvents;
@@ -453,7 +508,14 @@ int DAQ::PixelReadout::StartAcquisition(){
 
   if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_MallocReadoutBuffer(handle[0],&buffer,&size);}
 
+  //Initialse the clock 
+  auto trigger_time = std::chrono::high_resolution_clock::now();
+  double start_time = std::chrono::duration_cast<std::chrono::seconds>(trigger_time.time_since_epoch()).count();
+  double start_aqtime_s  = start_time;
+  double start_sqtime_ns =  std::chrono::duration_cast<std::chrono::nanoseconds>(trigger_time.time_since_epoch()).count();
+
   for(int b=0; b<DAQConfig.MAXNB; b++){
+    
     if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SWStartAcquisition(handle[b]);}
     std::cout << "Aquisition Started" << std::endl;
   }
@@ -500,12 +562,34 @@ int DAQ::PixelReadout::StartAcquisition(){
       if(TotalnumEvents > MaxEvents || time_passed > MaxTime || quit){
 	break;
       }
+
+      //If the time is over 15 second reset the aquisition so the time tag is not rolled over.
+      if(std::time(0) - start_aqtime_s > 15){
+
+	if(std::time(0) - start_aqtime_s > 17){
+	  std::cerr << "The trigger time tag rolled over" << std::endl;
+	  for(int b=0; b<DAQConfig.MAXNB; b++){
+	    ret = CAEN_DGTZ_SWStopAcquisition(handle[b]);
+	  }
+	  this->QuitProgram();
+	  return 0;
+	}
+
+	trigger_time = std::chrono::high_resolution_clock::now();
+	start_aqtime_s = std::chrono::duration_cast<std::chrono::seconds>(trigger_time.time_since_epoch()).count();
+	start_sqtime_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(trigger_time.time_since_epoch()).count();
+
+	for(int b=0; b<DAQConfig.MAXNB; b++){
+	  ret = CAEN_DGTZ_SWStopAcquisition(handle[b]);
+	  ret = CAEN_DGTZ_SWStartAcquisition(handle[b]);
+	}
+      }
         
       for(int b=0; b<DAQConfig.MAXNB; b++) {
             
 	//Send software trigger
 	if(DAQConfig.SoftwareTrigger){
-	  Sleep(100);
+	  Sleep(1000);
 	  if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_SendSWtrigger(handle[b]);} 
 	}
 
@@ -515,14 +599,9 @@ int DAQ::PixelReadout::StartAcquisition(){
 	//The buffer read from the digitizer is used in the other functions to get the event data. The following function returns the number of events in the buffer 
 	if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_GetNumEvents(handle[b],buffer,bsize,&numEvents);}
 	int buffersize = bsize;
-      
-	//Only count one event for all the boards
-	if(b==0){
-	  EventsInFile += numEvents;
-	}
 
 	for (int ev=0;ev<numEvents;ev++) {
-	  
+
 	  // Get the Infos and pointer to the event
 	  if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_GetEventInfo(handle[b],buffer,bsize,ev,&eventInfo,&evtptr);}
 	  
@@ -531,39 +610,63 @@ int DAQ::PixelReadout::StartAcquisition(){
 	  //Decode the event to get the data
 	  if(ret == CAEN_DGTZ_Success){ret = CAEN_DGTZ_DecodeEvent(handle[b],evtptr,(void**) &Evt);}
 
-	  uint32_t AveragedChSize = ceil(Evt->ChSize[0]*16/DAQConfig.AverageTime);
  	  uint32_t NumChannels = sizeof(Evt->DataChannel)/sizeof(Evt->DataChannel[0]);
 
+	  double time_since_aq = 8*(double)eventInfo.TriggerTimeTag;
+	  
+	  double ns_quot     =  std::trunc((start_sqtime_ns + time_since_aq)/1e9);
+	  double ns_reminder = std::fmod((start_sqtime_ns + time_since_aq),1e9); 
+
 	  //Fill the header information
-	  eventheader.Timestamp         = eventInfo.TriggerTimeTag;
-	  eventheader.EventNumber       = eventInfo.EventCounter; 
+	  eventheader.Timestamp_s       = ns_quot;
+	  eventheader.Timestamp_ns      = ns_reminder;
+	  eventheader.EventNumber       = EventNum + ev; 
 	  eventheader.BoardBaseAddress  = eventInfo.BoardId;
 	  eventheader.NumChannels       = NumChannels;
-	  eventheader.ChSize            = AveragedChSize;
+	  eventheader.ChSize            = Evt->ChSize[0];
+	  eventheader.TriggerType       = eventInfo.Pattern;
+	  
+	  if(DAQConfig.ApplyAverageWaveform){
+	    eventheader.ChSize = ceil(Evt->ChSize[0]*16/DAQConfig.AverageTime);  
+	  }
+
+	  //Check the time timestamp is negative. Casting to the int_32 gives the correct format of the TriggerTimeTag. It is a 31 bit counter with 1 bit to indicate that it rolled over. The time runs on a 125 MHz clock giving a resolution of 8 ns. Hence the triggertimetag indicates the number of 8 ns from the start of the aquisition. As it is stored as 31 bit int the timing last for 17s. 
+	  if((int32_t) eventInfo.TriggerTimeTag < 0){
+	    std::cerr << "Somthing went wrong the time stamp is as rolled over" << std::endl;
+	    break;
+	  }
 	
 	  if(DAQConfig.Verbose){
 	    std::cout << "Event Found!" << std::endl;
 	    std::cout << "Event Number: " << eventheader.EventNumber << std::endl;
-	    std::cout << "Event Time  : " << eventheader.Timestamp << std::endl;
+	    std::cout << "Event Time  : " << eventheader.Timestamp_s  << "." << eventheader.Timestamp_ns << std::endl;
+	    std::cout << "Event Time  : " << eventInfo.TriggerTimeTag << std::endl;
+	    std::cout << "TriggerType : " << eventheader.TriggerType << std::endl;
 	    std::cout << "Board ID    : " << eventheader.BoardBaseAddress << std::endl;
+	    std::cout << "Chennel Size: " << eventheader.ChSize << std::endl;
+	    std::cout << "NumChannels : " << NumChannels << std::endl;
 	  }
 	
 	  //Write the data to the file
 	  outputfile.write((char*)&eventheader,sizeof(EventHeader));
 
-          uint16_t* averagedWaveforms[NumChannels];
+	  uint16_t** averagedWaveforms = new uint16_t*[NumChannels];
 	  
 	  for(uint16_t ch=0; ch<NumChannels; ++ch){
             // Average the waveform
-	    //uint16_t* averagedWaveform = Evt->DataChannel[ch];
-	    uint16_t* averagedWaveform = this->AverageWaveform(Evt->DataChannel[ch],Evt->ChSize[0], AveragedChSize);
-	    //outputfile.write((char*)Evt->DataChannel[ch],sizeof(uint16_t)*eventheader.ChSize);
-	    outputfile.write((char*)averagedWaveform,sizeof(uint16_t)*AveragedChSize);
-	    averagedWaveforms[ch] = averagedWaveform;
+	    uint16_t* averagedWaveform = Evt->DataChannel[ch];
+	    if(DAQConfig.ApplyAverageWaveform){
+	      averagedWaveforms[ch] = this->AverageWaveform(Evt->DataChannel[ch],Evt->ChSize[0], eventheader.ChSize);
+	    }
+	    else{ 
+	      averagedWaveforms[ch] = this->CopyWaveform(Evt->DataChannel[ch],Evt->ChSize[0]);
+	    }
+	    //	    outputfile.write((char*)Evt->DataChannel[ch],sizeof(uint16_t)*eventheader.ChSize);
+	    outputfile.write((char*)averagedWaveform,sizeof(uint16_t)*eventheader.ChSize);
 	  }
 
 	  if(DAQConfig.RunOnlineAnalysis){
-	    std::cout << " Event Number: " << eventheader.EventNumber << std::endl;
+	    
 	    auto t1 = std::chrono::high_resolution_clock::now();
 	    
 	    float maxPeakHeight, maxPeakTime;
@@ -574,11 +677,12 @@ int DAQ::PixelReadout::StartAcquisition(){
 
 	    for(uint16_t ch=0; ch<NumChannels; ++ch){
 	      std::string channelID = DAQ::ChannelMap::GetChannelID(ch+1, channelMap);
-	      std::cout << " ChannelID: " << channelID << std::endl;
-	      
-	      // TODO ED
-	      PixelData::TPC::OnlineMonitor online = PixelData::TPC::RunOnline(averagedWaveforms[ch],eventheader.ChSize,eventheader.EventNumber,ch,channelID,eventheader.Timestamp,true,false,true);
-	      
+
+	      PixelData::TPC::OnlineMonitor online =  PixelData::TPC::RunOnline(averagedWaveforms[ch],eventheader.ChSize,eventheader.EventNumber,ch,channelID,true,false,true);
+
+	      online.SetTimeStampS(eventheader.Timestamp_s);
+	      online.SetTimeStampN(eventheader.Timestamp_ns);
+
 	      //Send to the database 
 	      int err = DataBase.SendToDatabase(online);
 	      if(err !=0){std::cerr << "there was an error trying to send the data to the database" << std::endl;}
@@ -595,25 +699,61 @@ int DAQ::PixelReadout::StartAcquisition(){
 	      //for(int adc_it=0; adc_it<(Evt->ChSize[ch]); ++adc_it){
 		//std::cout << Evt->DataChannel[ch][adc_it] << " ";
 	      //}
-
-	      std::cout << " " << std::endl;
 	    }
-	    TCanvas* XYCanvas = PixelData::TPC::PixelXYPlot(channelIDs, numHitsEvent, maxPeakHeights, eventheader.EventNumber, channelMap);
-	    TCanvas* XYTCanvas = PixelData::TPC::PixelXYTPlot(channelIDs, numHitsEvent, maxPeakHeights, maxPeakTimes, eventheader.EventNumber, channelMap);
-	    XYCanvas->SaveAs("/data/TPC/OnlinePlots/XYCanvas.jpg");
-	    XYTCanvas->SaveAs("/data/TPC/OnlinePlots/XYTCanvas.jpg");
-	    delete XYCanvas, XYTCanvas;
+	    
+	    auto t3 = std::chrono::high_resolution_clock::now();
+            auto duration_int = std::chrono::duration_cast<std::chrono::microseconds>(t3-t1).count();
+	    std::cout<<"Time taken Int: "<<duration_int <<std::endl;
+
+	    if(DAQConfig.RunEventDiplay){
+	      
+	      if((eventheader.EventNumber+1) % DAQConfig.RunEventDisplayOverEveryXEvent == 0){
+
+		if(DAQConfig.Verbose){std::cout << "Runing Event Display" << std::endl;}
+		
+		TCanvas* XYCanvas = PixelData::TPC::PixelXYPlot(channelIDs, numHitsEvent, maxPeakHeights, eventheader.EventNumber, channelMap);
+		TCanvas* XYTCanvas = PixelData::TPC::PixelXYTPlot(channelIDs, numHitsEvent, maxPeakHeights, maxPeakTimes, eventheader.EventNumber, channelMap);
+
+		//		XYCanvas->SaveAs("/data/TPC/OnlinePlots/XYCanvas.jpg");
+		//		XYTCanvas->SaveAs("/data/TPC/OnlinePlots/XYTCanvas.jpg");
+		XYCanvas->Draw();
+		XYTCanvas->Draw();
+
+		delete XYCanvas, XYTCanvas;
+	      }
+	    }
 	    
 	    auto t2 = std::chrono::high_resolution_clock::now();
 	    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
 	    std::cout<<"Time taken: "<<duration<<std::endl;
 	  }
+
+	  eventheader.Timestamp_s       = 99999; 
+	  eventheader.Timestamp_ns      = 99999;
+          eventheader.EventNumber       = 99999;
+          eventheader.BoardBaseAddress  = 99999;
+          eventheader.NumChannels       = 99999;
+          eventheader.ChSize            = 99999;
+          eventheader.TriggerType       = 99999;
+	
+	  for(uint16_t ch=0; ch<NumChannels; ++ch){
+	    delete[] averagedWaveforms[ch];	
+	  }
+	  delete[] averagedWaveforms;
 	}
 
+	if(DAQConfig.RunOnlineAnalysis){DataBase.Complete();}
+	
 	//Free the Event 
 	if(ret == CAEN_DGTZ_Success){CAEN_DGTZ_FreeEvent(handle[b],(void**) &Evt);}
+          
+	if(b==0){
+	  EventNum += numEvents;
+	  EventsInFile += numEvents;
+	}
       }//End of loop on boards                
-      
+
+
       //Check if it time to end the acquisition 
       quit = QuitAcquisition();
       time_passed  = std::time(0) - start_time;
@@ -645,9 +785,17 @@ int DAQ::PixelReadout::StartAcquisition(){
   return 0;
 }
 
+uint16_t* DAQ::PixelReadout::CopyWaveform(uint16_t* waveform,uint32_t ChSize){
+  uint16_t* new_array = new uint16_t[ChSize];
+  for (uint32_t adc_it=0; adc_it<ChSize; ++adc_it){
+    new_array[adc_it] =  waveform[adc_it];
+  }
+  return new_array;
+}
+
 uint16_t* DAQ::PixelReadout::AverageWaveform(uint16_t* waveform, uint32_t ChSize, uint32_t AveragedChSize){
   
-  uint16_t* averaged = new uint16_t[AveragedChSize];
+  static uint16_t* averaged = new uint16_t[AveragedChSize];
   //std::cout<<"AveragedChSize: "<<AveragedChSize<<std::endl;
   int tick    = 0;
   int time    = 0;  
@@ -665,8 +813,9 @@ uint16_t* DAQ::PixelReadout::AverageWaveform(uint16_t* waveform, uint32_t ChSize
       averaged[tick] = round(sum/counter);
       //std::cout<<"adc: "<<adc_it<<" time: "<<time<<" and tick: "<<tick<<" and avg. "<<round(sum/counter)<<std::endl;
       ++tick;
-      sum = 0;
-      counter = 0;	
+      // Note we do not reinitialise to zero as we want to keep this information
+      sum     = waveform[adc_it];
+      counter = 1;	
     }
   }
 	

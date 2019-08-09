@@ -6,24 +6,32 @@
 #####  Global DAQ Parameters ####
  
 MAXNB				1               #Number of Boards 
-ReadoutSize			100000            #Size of the Waveforms saved
-MaxEvents			10               #Max number of events to take
+ReadoutSize			10000           #Size of the Waveforms saved (62.5MHz rate, 1 tick=16ns)
+MaxEvents			12              #Max number of events to take
 MaxTime                         1000            #seconds
 BoardsBaseAddress		[ 0x32100000 ]
 SoftwareTrigger                 0               #Tigger using a software trigger 0 No 1 Yes
 RunOnlineAnalysis         	1               #Run the Online Analaysis whilst the DAQ is running 0 No 1 Yes
 MaxEventsPerFile                100             #Number of the Evenets per file 
 Verbose                         1               #Extra info whilst running the DAQ 
-TimeOffset                      50              #Time offset from the trigger given as a % (0% trigger is at the end);
- 
+TimeOffset                      75              #Time offset from the trigger given as a % (0% trigger is at the end);
+AverageTime                     500             #Time to average over in ns 
+ApplyAverageWaveform            0               #0 No. 1 Yes 
+ApplyDecimationFactor           0               #0 No. 1 Yes 
+DecimationFactor                4               #new frequency = nominal frequency/2^(this number). Allowed values are:  1, 2, 4, 8, 16, 32, 64, 128. 
+RunEventDiplay                  1               #0 No 1 Yes
+RunEventDisplayOverEveryXEvent  10               #Run the display every events
+                                                    
 ##### DAQ Board Specific Parameters #####
 
 ## Board 1 ##
 GroupTriggerMasks	 	0x32100000	[ 1 1 1 1 1 1 1 1 ]                                     #Use the groups to trigger (CAEN 1740 is split into 8 groups of 8 channels)                                                                                                         #1 Yes 0 No
-GroupAquisitionMasks 		0x32100000	255                                                     #Decides which groups to dtake data. For more details see the README
-GroupTriggerThresholds       	0x32100000	[ 2250 2250 2250 2250 2250 2250 2250 2250 ]             #Thresholds in ADC for each trigger. Rememebr Offset
+GroupAquisitionMasks 		0x32100000	255                                                     #Decides which groups to dtake data. For more details see the README (255 is                                                                                                        all) 
+GroupTriggerThresholds       	0x32100000	[ 100 450 450 450 450 450 450 450 ]                     #Thresholds in ADC for each trigger from the baseline. This value is added                                                                                                          to the offse 2Vpp 12 bit, 1 bit = 0.48 mV 
 GroupPolarity                   0x32100000      [ 0 0 0 0 0 0 0 0 ]                                     #Set polarity (1=Falling Edge, 0=RisingEdge)
-GroupDCOffset                   0x32100000      [ 32767 32767 32767 32767 32767 32767 32767 32767 ]     #Set DC offset is 16bits from P2P confusingly (DAQ is 12 bits). 
+GroupDCOffset                   0x32100000      [ 1000 1000 1000 1000 1000 1000 1000 1000 ]             #Offset in milliVolts Set DC offset is 16bits from P2P confusingly                                                                                                                  (DAQ is 12 bits). An offset of 0 mV corresponds to setting the baseline at                                                                                                          1 V and an offset of 2000 mV corresponds to baseline of -1 V. You can have                                                                                                          anything between 0 and 2000 mV in steps of 0.03051757812 mV. If you don't   
+                                                                                                        have a value that is divisible by 0.03051757812 then the value is floored.
+
 ## Board 2 ##
 
 #### ARDUINO Parameters ####
