@@ -11,40 +11,42 @@ MaxEvents			12              #Max number of events to take
 MaxTime                         1000            #seconds
 BoardsBaseAddress		[ 0x32100000 ]
 SoftwareTrigger                 0               #Tigger using a software trigger 0 No 1 Yes
-RunOnlineAnalysis         	1               #Run the Online Analaysis whilst the DAQ is running 0 No 1 Yes
+RunOnlineAnalysis         	0               #Run the Online Analaysis whilst the DAQ is running 0 No 1 Yes
 MaxEventsPerFile                100             #Number of the Evenets per file 
 Verbose                         1               #Extra info whilst running the DAQ 
-TimeOffset                      75              #Time offset from the trigger given as a % (0% trigger is at the end);
+TimeOffset                      600             #Time offset from the trigger given as a % (0% trigger is at the end) Decimination has to be considered;
 AverageTime                     500             #Time to average over in ns 
 ApplyAverageWaveform            0               #0 No. 1 Yes 
-ApplyDecimationFactor           0               #0 No. 1 Yes 
-DecimationFactor                4               #new frequency = nominal frequency/2^(this number). Allowed values are:  1, 2, 4, 8, 16, 32, 64, 128. 
-RunEventDiplay                  1               #0 No 1 Yes
+ApplyDecimationFactor           1               #0 No. 1 Yes 
+DecimationFactor                8               #new frequency = nominal frequency/2^(this number). Allowed values are:  1, 2, 4, 8, 16, 32, 64, 128. 
+RunEventDiplay                  0               #0 No 1 Yes
 RunEventDisplayOverEveryXEvent  10               #Run the display every events
+DeadTime                        1000
                                                     
 ##### DAQ Board Specific Parameters #####
 
 ## Board 1 ##
 GroupTriggerMasks	 	0x32100000	[ 1 1 1 1 1 1 1 1 ]                                     #Use the groups to trigger (CAEN 1740 is split into 8 groups of 8 channels)                                                                                                         #1 Yes 0 No
 GroupAquisitionMasks 		0x32100000	255                                                     #Decides which groups to dtake data. For more details see the README (255 is                                                                                                        all) 
-GroupTriggerThresholds       	0x32100000	[ 100 450 450 450 450 450 450 450 ]                     #Thresholds in ADC for each trigger from the baseline. This value is added                                                                                                          to the offse 2Vpp 12 bit, 1 bit = 0.48 mV 
-GroupPolarity                   0x32100000      [ 0 0 0 0 0 0 0 0 ]                                     #Set polarity (1=Falling Edge, 0=RisingEdge)
+GroupTriggerThresholds       	0x32100000	[ 40 40 40 40 40 40 40 40 ]                     #Thresholds in ADC for each trigger from the baseline. This value is added                                                                                                          to the offse 2Vpp 12 bit, 1 bit = 0.48 mV 
+GroupPolarity                   0x32100000      [ 0 1 0 1 0 1 0 1 ]                                     #Set polarity (1=Falling Edge, 0=RisingEdge)
 GroupDCOffset                   0x32100000      [ 1000 1000 1000 1000 1000 1000 1000 1000 ]             #Offset in milliVolts Set DC offset is 16bits from P2P confusingly                                                                                                                  (DAQ is 12 bits). An offset of 0 mV corresponds to setting the baseline at                                                                                                          1 V and an offset of 2000 mV corresponds to baseline of -1 V. You can have                                                                                                          anything between 0 and 2000 mV in steps of 0.03051757812 mV. If you don't   
                                                                                                         have a value that is divisible by 0.03051757812 then the value is floored.
 
 ## Board 2 ##
 
+##Require BD for test pulse global 0 40.
 #### ARDUINO Parameters ####
 LeakageControl		0   #Leakage Control  
 MonitorSelector		0   #1=bandgap reference, 0=temperature 
 MonitorOn		0   #1=Monitor ON on Ch0    
 FilterOn		0   #1= high filter on ch16 enabled    
 OutputBufferOn    	1   #Output buffer 0=down and bypassed, 1=active 
-OutputCoupling		1   #Output coupling, 0=DC, 1=AC  
+OutputCoupling		0   #Output coupling, 0=DC, 1=AC  
 ASIC_Shaping_Time	2   #mus  (Shaping time bit 1 00=1us 10=0.5us, 01 = 3us, 11=2us)
-ASIC_Gain              	14  #mV/fC (Gain bit 1 00=4.7mC/fC 10=7.8mV/fC, 01=14mV/fC,11=25mV/fc)
-Baseline		200 #Baseline 900mv or 200mv  
+ASIC_Gain              	25  #mV/fC (Gain bit 1 00=4.7mC/fC 10=7.8mV/fC, 01=14mV/fC,11=25mV/fc)
+B.aseline		900 #Baseline 900mv or 200mv  
 TestCapacitanceEnabled	0   #TestCapacitanceEnabled
-TestPulseDuration      	5   #mus
-TestPulsePeriod        	100 #mus
-EnableTestPulses        1   #1 Yes 0 No 
+TestPulseDuration      	0 #mus
+TestPulsePeriod        	0 #mus
+EnableTestPulses        0  #1 Yes 0 No 

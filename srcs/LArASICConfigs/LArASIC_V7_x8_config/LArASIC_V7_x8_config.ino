@@ -1,50 +1,58 @@
 #include <EEPROM.h>
 #include <stdio.h>
 #include <Stream.h>
-#define NCHIPS 1 //8      //max number of LARASIC to configure
 
-#define G_SLK 0x80    // leakage control
-#define G_STB1 0x40    // Monitor selector, 1=bandgap reference, 0=temperature
-#define G_STB 0x20    // 1=Monitor ON on Ch0
-#define G_S16 0x10    // 1= high filter on ch16 enabled 
+#define NCHIPS 4  
+//max number of LARASIC to configure
 
-#define C_SBF 0x80    // Output buffer 0=down and bypassed, 1=active 
-#define C_SDC 0x40    // Output coupling, 0=DC, 1=AC
-#define C_ST1 0x20    // 
-#define C_ST0 0x10    // Peak time selector
-#define C_SG1 0x08    // 
-#define C_SG0 0x04    // Gain selector
-#define C_SNC 0x02    // Baseline selector, 0=900mV, 1=200mV
-#define C_STS 0x01    // Test capacitance enable
+#define G_SLK 0x80        // Leakage current control:   0 = 500 pA. 1 = 100 pA.
+#define G_STB1 0x40       // Monitor selector:          0 = Monitor temperature. 1 = Monitor bandgap reference.
+#define G_STB 0x20        // Monitor selector:          0 = Monitor analog channel signal. 1 = Monitor temperature or bandgap reference.
+#define G_S16 0x10        // High filter switch ch16:   0 = Disabled. 1 = Enabled.
+#define G_GSDC 0x04
 
+#define C_SBF 0x80        // Output buffer bypass:      0 = Output buffer powered down and bypassed. 1 = Output buffer selected.
+#define C_SDC 0x40        // Output coupling:           0 = DC coupling. 1 = AC coupling.
+#define C_ST1 0x20        // Peak time selection:       00 = 1.0 us, 10 = 0.5 us, 01 = 3.0 us, 11 = 2.0 us.
+#define C_ST0 0x10        // Peak time selection:
+#define C_SG1 0x08        // Gain selection:            00 = 4.7 mV/fC, 10 = 7.8 mV/fC, 01 = 14 mV/fC, 11 = 25 mV/fC.
+#define C_SG0 0x04        // Gain selection:
+#define C_SNC 0x02        // Baseline selection:        0 = 900mV (for non-collecting mode). 1 = 200mV (for collecting mode).
+#define C_STS 0x01        // Test capacitance:          0 = Disabled. 1 = Enabled.
+
+unsigned char REG_Global0[NCHIPS];
 unsigned char REG_Global[NCHIPS];
 unsigned char REG_Ch[NCHIPS][16];
-const int ledPin =  13;      // the number of the LED pin
-const int sdoPin =  10;      // the number of the SDO pin
-const int clkPin =  11;      // the number of the CLK pin
-const int csPin =  12;      // the number of the CLK pin
-const int rstPin =  9;      // the number of the RESET pin
-const int tstPin = 8; // pin for test out
-const int tD = 1; //bit rate delay, ms
-const int vddPin = A0; // for sensing chip vdd
-const int vddpPin = A1; // for sensing chip vddp
 
-unsigned int PulseWidth; //test pulse duration in mcs
+const int ledPin  = 13;   // the number of the LED pin
+const int sdoPin  = 10;   // the number of the SDO pin
+const int clkPin  = 11;   // the number of the CLK pin
+const int csPin   = 12;   // the number of the CLK pin
+const int rstPin  =  9;   // the number of the RESET pin
+const int tstPin  =  8;   // pin for test out
+const int tD      =  1;   // bit rate delay, ms
+const int vddPin  = A0;   // for sensing chip vdd
+const int vddpPin = A1;   // for sensing chip vddp
+
+unsigned int PulseWidth;  // test pulse duration in mcs
 unsigned int PulsePeriod; // test pulse period in mcs
 
 char buf[256];
 int bufptr = -1;
+
 void setup()
 {
   // start serial port at 9600 bps:
   Serial.begin(9600);
   Serial.print("LAR TPC CONTROLLER initialization...");
-  PulseWidth = 3; //test pulse duration in mcs
+
+  PulseWidth = 20; //test pulse duration in mcs
   PulsePeriod = 10000; // test pulse period in mcs
 
-  //  SetBasicConfig();
-  //  SaveConfig();
+  //SetBasicConfig();
+  //SaveConfig();
   RestoreConfig();
+
   pinMode(ledPin, OUTPUT);
   pinMode(sdoPin, OUTPUT);
   pinMode(clkPin, OUTPUT);
@@ -55,13 +63,15 @@ void setup()
   digitalWrite(ledPin, LOW);
   digitalWrite(sdoPin, LOW);
   digitalWrite(clkPin, LOW);
-  digitalWrite(csPin, HIGH);
+  digitalWrite(csPin, LOW);
+  //    digitalWrite(csPin, HIGH);
   digitalWrite(rstPin, HIGH);
+
   SendConfig();
 
   Serial.println("done.");
-  PrintConfig();
 
+  PrintConfig();
 }
 
 char Command = 0;
@@ -70,27 +80,19 @@ unsigned int Bit = LOW;
 int res = 0;
 void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
-
 void loop()
 {
-
-  int test = 0;
   while (Serial.available() > 0 && bufptr < 255 && buf[bufptr] != 0xD ) {
-    ++test;
-    if (test == 1) {
-      Serial.println("test is one");
-    }
     bufptr++;
     buf[bufptr] = Serial.read();
-    Serial.println(buf[bufptr]);
   }
   if (bufptr >= 255) Serial.println("Input buffer overflow!");
-  if ( buf[bufptr] == 0xD)
+  if (buf[bufptr] == 0xD)
   {
     buf[bufptr] = 0;
     Serial.print("Received command: ");
     Serial.println(buf);
-    //Serial.println(", processing...");
+    //     Serial.println(", processing...");
     res = sscanf(buf, "%c %s %u", &Command, Register, &Bit);
     if (res > 0)
     {
@@ -208,6 +210,15 @@ void loop()
               if (Bit > 0) REG_Global[i] = REG_Global[i] | G_SLK;
             }
           }
+          else if (strcmp(Register, "GSDC") == 0)
+          {
+            sprintf(buf, "Set Global Register bit %s to %u.", Register, Bit);
+            Serial.println(buf);
+            for (int i = 0; i < NCHIPS; i++)  {
+              REG_Global[i] = REG_Global[i] & (~G_GSDC);
+              if (Bit > 0) REG_Global[i] = REG_Global[i] | G_GSDC;
+            }
+          }
 
           else if (strcmp(Register, "TPD") == 0)
           {
@@ -319,10 +330,10 @@ void RestoreConfig()
 {
   for (int i = 0; i < NCHIPS; i++)
   {
+    REG_Global0[i] = 0x40;
     REG_Global[i] = EEPROM.read(i * 17);
     for (int ch = 0; ch < 16; ch++)  REG_Ch[i][ch] = EEPROM.read(i * 17 + ch + 1);
   }
-
 }
 
 void SendConfig()
@@ -332,18 +343,21 @@ void SendConfig()
   digitalWrite(rstPin, HIGH);
   delay(tD);
 
+  digitalWrite(csPin, HIGH);
+  digitalWrite(ledPin, HIGH); //set CS high
+
   for (int i = NCHIPS - 1; i >= 0; i--)
   {
     for (int ch = 15; ch >= 0; ch--) SendByte(REG_Ch[i][ch]);
     SendByte(REG_Global[i]);
+    SendByte(REG_Global0[i]);
   }
   digitalWrite(csPin, LOW); //latch shift register
   digitalWrite(ledPin, LOW); //latch shift register
   delay(tD);
-  digitalWrite(csPin, HIGH);
-  digitalWrite(ledPin, HIGH); //latch shift register
+  //  digitalWrite(csPin, HIGH);
+  //  digitalWrite(ledPin, HIGH); //latch shift register
   delay(tD);
- // }
 }
 
 void SendByte(unsigned char Byte)
@@ -370,6 +384,7 @@ void SetBasicConfig()
   for (int i = NCHIPS - 1; i >= 0; i--)
   {
     for (int ch = 15; ch >= 0; ch--)   REG_Ch[i][ch] = C_SBF | C_ST1 | C_ST0 | C_SG1 | C_SG0 | C_SNC;
+    REG_Global0[i] = 0x40;
     REG_Global[i] = 0x00;
   }
 }
@@ -397,6 +412,10 @@ void PrintConfig()
     //    Serial.println(" ");
     Byte = REG_Global[i];
     Serial.print("GLOBAL ");  Serial.print(Byte, HEX);
+    Byte = REG_Global0[i];
+    Serial.print(" ");
+    Serial.print(Byte, HEX);
+
     Serial.println(" ");
     // REG_Global[i]= 0x00;
   }
@@ -415,7 +434,6 @@ void      PrintVoltages()
   float vddp = float(analogRead(vddpPin)) / 1024.*5.;
   Serial.print("Vdd = "); Serial.print(vdd); Serial.print(" V; Vddp = "); Serial.print(vddp); Serial.println(" V.");
 }
-
 
 void PrintHelp()
 {

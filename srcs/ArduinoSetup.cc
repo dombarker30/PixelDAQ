@@ -196,12 +196,14 @@ int DAQ::ArduinoSetup::SendConfig(){
   if(!err){err *= SendCommand(ArduinoCommands.C_STS);}
   if(!err){err *= SendCommand(ArduinoCommands.TPD);}
   if(!err){err *= SendCommand(ArduinoCommands.TPP);}
-
+  
 
   FILE *file;
   file = fopen("/dev/ttyUSB0","w");  //Opening device file
   if(file != NULL){
     std::cout << "Opened port and sending to ASIC" << std::endl;
+    usleep(1000*100);
+    fprintf(file,"%s","P \r");
     usleep(1000*100);
     fprintf(file,"%s","S \r");
     usleep(1000*100);

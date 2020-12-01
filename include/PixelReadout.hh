@@ -82,6 +82,7 @@ public:
     uint16_t DecimationFactor;    //New Frequency = Nominal Frequency/2^This number
     int RunEventDiplay;           //Bool should we run the event display.
     int RunEventDisplayOverEveryXEvent; //How many events should we wait to run the evd.
+    int DeadTime;                 //Time to wait after every event before triggering
     std::vector<uint32_t> BoardsBaseAddress; //Board Base Addresses
     
     std::map<int, std::vector<uint32_t> > GroupTriggerMasks;      //Map of boards and there groups. Used to turn Groups on and off for triggering.       

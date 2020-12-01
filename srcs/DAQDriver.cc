@@ -14,7 +14,7 @@ int main(int argc, char* argv[]){
 
   TApplication theApp("App",&argc, argv);
 
-  //  Inatalise the arduino - read config,print config, send config
+  //Inatalise the arduino - read config,print config, send config
   if(argc < 2){
     DAQ::ArduinoSetup ArduinoSetup;
     if(ArduinoSetup.err){
@@ -28,8 +28,7 @@ int main(int argc, char* argv[]){
 
   Sleep(5000);
 
-
-  //Start the Acquisition 
+  // //Start the Acquisition 
   if(!PixelReadout.err){PixelReadout.err = PixelReadout.StartAcquisition();}
 
   //Close The DAQ
